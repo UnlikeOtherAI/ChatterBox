@@ -61,8 +61,8 @@ test("desktop search, filters, thread view, delivery audit, sessions and read-on
     await expect(page.locator(".message")).toHaveCount(2);
     await page.getByRole("button", { name: "Show all threads" }).click();
     await page.getByRole("button", { name: "Sessions", exact: false }).click();
-    await expect(page.locator(".session-card")).toHaveCount(3);
-    await expect(page.locator(".session-card").first()).toContainText(
+    await expect(page.locator("#sessions .session-card")).toHaveCount(3);
+    await expect(page.locator("#sessions .session-card").first()).toContainText(
       "Unknown — no lifecycle signal",
     );
     const denied = await page.evaluate(async () => {

@@ -49,8 +49,8 @@ The CLI channel proof used a temporary Node MCP server bound to `127.0.0.1` and 
 
 1. Regression-test Codex queueing into an already-open desktop chat across restarts and concurrent clients, and pin observed busy-turn timing per version.
 2. Prove channel delivery into a desktop-hosted Claude Code session, production plugin approval, authenticated sender control, and explicit reply-tool acknowledgement. Repeat the terminal burst and busy tests on release versions.
-3. Implement and exercise durable offline retry, deduplication, alias ambiguity, project isolation, and honest delivery status.
-4. Build and inspect installers and a read-only dashboard on native macOS, Windows, and Linux hosts.
+3. Keep the implemented retry, deduplication, alias ambiguity, scope, and delivery-state regression tests green; repeat real-provider interruption and restart cases before broadening capability claims.
+4. Extend the native builds and unpacked dashboard checks below with fresh installer installation, upgrade, uninstall, and signed launch verification.
 5. Validate each store and Homebrew artifact before claiming a distribution channel is available.
 
 ## Sources
@@ -66,17 +66,66 @@ stdio MCP tools, Codex and Claude adapters, a read-only Electron dashboard, full
 search, and optional author-supplied embeddings. The database defaults to
 `~/.chaterbox/data.db`.
 
-Initial macOS verification passed eleven backend/MCP tests and two Electron user-flow
-tests. These tests cover real SQLite persistence/reopen, full-text Unicode/prefix
-matching, ranked pagination, vectors and incompatible dimensions, author-only
-embedding writes, project isolation, alias ambiguity, idempotency conflicts, scoped
-credentials, read-only viewer authority, stale presence, lease expiry, durable adapter
-receipt recovery, and two real stdio MCP processes exchanging and acknowledging a
-message. Electron tests cover search, empty results, kind/thread filters, audit details,
-sessions, narrow layout, the empty board, and blocked mutation through preload IPC.
-UI screenshots contain isolated synthetic fixtures, never real coordination messages.
+The 13 backend/MCP tests exercise real SQLite persistence/reopen, full-text
+Unicode/prefix matching, ranked pagination, vectors and incompatible dimensions,
+author-only embedding writes, project isolation, alias ambiguity, idempotency
+conflicts, scoped credentials, read-only viewer authority, stale presence, lease
+expiry, durable adapter receipt recovery, and two real stdio MCP processes
+exchanging and acknowledging a message. mDNS tests reject invalid advertisements
+and prevent publishing the operating system's own hostname.
 
-Native host builds, package smoke tests, and CI results are being collected for this
-revision. They must be recorded here before claiming those gates passed. These
-application tests do not spend model tokens or establish new provider/native-session
-capabilities. The earlier Codex/Claude proof matrix remains the limit of those claims.
+Two Electron user-flow tests cover search, empty results, kind/thread filters,
+audit details, sessions, the network-discovery view, narrow layout, the empty
+board, and blocked mutation through preload IPC. Screenshots contain isolated
+synthetic fixtures. Packaged smoke tests repeat real stdio MCP communication
+and both GUI flows using the built executable.
+
+### Native build evidence
+
+| Host                        | Source verification                                                                     | Package evidence                                                                | Remaining host limitation                                                                                                     |
+| --------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| macOS 27, Apple Silicon     | Lint, 13 backend/MCP tests, two Electron flows, and local multicast integration passed. | ARM64 ZIP built; packaged MCP and two GUI flows passed.                         | DMG creation failed in both system image tools. No signing/notarization or Intel build.                                       |
+| Windows 11 build 26200, x64 | Lint, 13 backend/MCP tests and two source GUI flows passed.                             | NSIS installer built. Packaged verification uses the bundled Node mode for MCP. | Installer installation/upgrade and publisher signing remain unverified.                                                       |
+| Ubuntu, kernel 6.8, x64     | Lint and 13 backend/MCP tests passed using task-local Node 24.17.0.                     | AppImage and DEB built.                                                         | Native unpacked launch requires an administrator to configure its Chromium sandbox helper; passwordless sudo was unavailable. |
+
+CI runs lint, the 13 backend/MCP tests, the two source GUI flows, an unpacked
+package build, packaged MCP, and the two packaged GUI flows on all three OSes.
+Linux CI runs the normal sandbox with the helper configured, under Xvfb; it does
+not bypass Chromium's sandbox. The complete workflow is
+[Verify](https://github.com/rafiki270/ChatterBox/actions/workflows/lint.yml).
+Native Ubuntu's administrator-dependent launch gap is separate from CI evidence.
+
+### LAN discovery evidence
+
+A Mac board listening on TLS advertised `_chatterbox._tcp.local` with the dedicated
+host `chatterbox-test.local`. Both Windows and Ubuntu discovered its name, HTTPS
+URL, protocol, version, and address hints using `discover --seconds 8`. Both
+reported `authenticated: false`; discovery performed no credential exchange or
+model invocation. `npm run test:mdns` also passed local publication, discovery by
+a second instance, and goodbye removal. The test listener was stopped afterward.
+
+An early prototype claimed the operating system's `.local` hostname. During this
+probe macOS renamed its network host, consistent with an mDNS record conflict.
+The implementation now uses a separate `chatterbox-<hostname>.local` default,
+rejects an explicit match with the OS hostname, and tests that guard. A custom
+certificate must match this dedicated name. Local-network permission prompts,
+firewall defaults, store entitlements, and discovery across separated network
+segments still need release validation.
+
+### Issues found by packaged tests
+
+- Awaiting Electron readiness during entry-module evaluation deadlocked CLI
+  startup. The entry now completes evaluation before awaiting readiness.
+- Windows GUI-mode Electron registered its board session but did not consume
+  piped MCP requests. Its bundled Node mode completed initialization; Windows
+  MCP setup and package tests use that mode explicitly.
+- The service now stops accepting connections before closing active sockets,
+  avoiding a reconnect race during shutdown.
+- Cold Windows startup exceeded the initial five-second UI assertion; startup
+  now has a bounded fifteen-second allowance and closes the app on test failure.
+
+These application tests spend no model tokens and establish no additional
+provider/native-session capabilities. The earlier Codex/Claude proof matrix
+remains the limit of those claims. Store and Homebrew publication, signing,
+notarization, fresh installation/upgrade, and production Claude channel approval
+are pending release gates, not completed features.

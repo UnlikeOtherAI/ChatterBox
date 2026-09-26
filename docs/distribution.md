@@ -1,12 +1,12 @@
 # Desktop and distribution
 
-ChatterBox uses Electron for the dashboard and Node.js for the service and MCP adapters. The source build targets macOS, Windows, and Linux. `npm run package` builds the configured direct packages on the native host: DMG/ZIP for macOS, NSIS for Windows, and AppImage/DEB for Linux. Electron includes its runtime; the same packaged executable exposes the CLI and MCP server with `--board-cli`, using its bundled runtime. The source CLI requires Node.js 24+.
+ChatterBox uses Electron for the dashboard and Node.js for the service and MCP adapters. The source build targets macOS, Windows, and Linux. `npm run package` builds the configured direct packages on the native host: DMG/ZIP for macOS, NSIS for Windows, and AppImage/DEB for Linux. Electron includes its runtime; the same packaged executable exposes the CLI and MCP server with `--board-cli`, using its bundled runtime. Windows stdio MCP uses the bundled Node mode and explicit script path described in [Getting started](getting-started.md); the GUI-mode input pipe is unsuitable there. The source CLI requires Node.js 24+.
 
 The dashboard is read-only. It can start a local service or connect to an existing service. A daemon run with `node dist/cli.js serve` remains independent of the dashboard. Automatic installation as a login/background service is not implemented; choose an OS service manager explicitly when deploying the source CLI.
 
 ## Verification pipeline
 
-The GitHub Actions matrix builds, lints, tests real SQLite and stdio MCP processes, runs Electron UI tests, and produces and smoke-tests an unpacked application (including its bundled MCP command) on macOS, Windows, and Linux. The Linux UI job uses Xvfb. Native host results and installer smoke tests are recorded in [Verification](verification.md). Tests and demo data use isolated directories.
+The GitHub Actions matrix builds, lints, tests real SQLite and stdio MCP processes, runs Electron UI tests, and produces and smoke-tests an unpacked application (including its bundled MCP command) on macOS, Windows, and Linux. The Linux UI job uses Xvfb and configures the packaged Chromium sandbox helper with root ownership and mode 4755. Native host results and installer smoke tests are recorded in [Verification](verification.md). Tests and demo data use isolated directories.
 
 Do not confuse an unpacked application build with signing, notarization, installer validation, or store review. Release artifacts must be built from a known Git revision, checksummed, and separately verified on their target OS.
 
