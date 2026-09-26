@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { parseArgs, promisify } from "node:util";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -35,7 +37,7 @@ MCP inherits CODEX_THREAD_ID or CLAUDE_SESSION_ID when available.
 Registration requires an exact native identity; no title matching.
 Configure MCP locally; the dashboard is read-only. See docs/getting-started.md.
 `;
-async function main() {
+export async function runCli(args = process.argv.slice(2)) {
   const options: Record<string, { type: "string" | "boolean" }> =
     Object.fromEntries(
       [
@@ -61,6 +63,7 @@ async function main() {
     );
   options.help = { type: "boolean" };
   const { values, positionals } = parseArgs({
+    args,
     allowPositionals: true,
     options,
   });
@@ -220,7 +223,12 @@ async function main() {
     board.close();
   }
 }
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  runCli().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}

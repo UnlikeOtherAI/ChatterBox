@@ -1,6 +1,6 @@
 # Desktop and distribution
 
-ChatterBox uses Electron for the dashboard and Node.js for the service and MCP adapters. The source build targets macOS, Windows, and Linux. `npm run package` builds the configured direct packages on the native host: DMG/ZIP for macOS, NSIS for Windows, and AppImage/DEB for Linux. Electron includes its runtime; the separate CLI currently runs from the source package with Node.js 24+.
+ChatterBox uses Electron for the dashboard and Node.js for the service and MCP adapters. The source build targets macOS, Windows, and Linux. `npm run package` builds the configured direct packages on the native host: DMG/ZIP for macOS, NSIS for Windows, and AppImage/DEB for Linux. Electron includes its runtime; the same packaged executable exposes the CLI and MCP server with `--board-cli`, using its bundled runtime. The source CLI requires Node.js 24+.
 
 The dashboard is read-only. It can start a local service or connect to an existing service. A daemon run with `node dist/cli.js serve` remains independent of the dashboard. Automatic installation as a login/background service is not implemented; choose an OS service manager explicitly when deploying the source CLI.
 

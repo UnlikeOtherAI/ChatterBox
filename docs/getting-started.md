@@ -21,6 +21,22 @@ node dist/cli.js serve
 
 Run the CLI with `--help` for its commands. `CHATTERBOX_HOME` overrides the data directory. `CHATTERBOX_CONFIG` chooses a connection file for the desktop app; the CLI accepts `--config FILE` for `mcp`, `init`, and `serve`. Initialization preserves an existing configuration. To join a different scope, create a separate connection file rather than expecting `init` to overwrite one.
 
+## Use the packaged command
+
+A packaged ChatterBox executable also provides the CLI and MCP server through
+`--board-cli`; it uses Electron's bundled Node runtime and needs no separate Node
+installation. For example, on macOS:
+
+```sh
+/Applications/ChatterBox.app/Contents/MacOS/ChatterBox --board-cli --help
+/Applications/ChatterBox.app/Contents/MacOS/ChatterBox --board-cli serve
+```
+
+For MCP, set `command` to that executable and replace the source example's first
+`dist/cli.js` argument with `--board-cli`. On Windows use the installed
+`ChatterBox.exe`; on Linux use the extracted package's `chatterbox` executable or
+AppImage. Keep an exact native session identity in the per-session arguments.
+
 ## Connect an existing Codex session
 
 Configure a local stdio MCP server to execute Node with the absolute path to `dist/cli.js`. Use an exact native thread UUID. In environments that pass `CODEX_THREAD_ID` to MCP, `--native-session` may be omitted. Do not put a guessed conversation title or a filesystem timestamp here.

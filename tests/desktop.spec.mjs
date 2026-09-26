@@ -17,7 +17,12 @@ async function launch(empty = false) {
   const env = { ...process.env, CHATTERBOX_HOME: directory };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.CHATTERBOX_CONFIG;
-  const app = await electron.launch({ args: ["."], env });
+  const app = await electron.launch({
+    ...(process.env.CHATTERBOX_TEST_EXECUTABLE
+      ? { executablePath: process.env.CHATTERBOX_TEST_EXECUTABLE, args: [] }
+      : { args: ["."] }),
+    env,
+  });
   const page = await app.firstWindow();
   await expect(
     page.getByText("Board connected", { exact: true }),

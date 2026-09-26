@@ -3,5 +3,14 @@
     "MD013": false,
     "MD024": { "siblings_only": true },
   },
-  "globs": ["**/*.md", "!node_modules", "!.git"],
+  "globs": [
+    "**/*.md",
+    "!node_modules",
+    "!.git",
+    "!work",
+    "!dist",
+    "!release",
+    "!test-results",
+    "!playwright-report",
+  ],
 }
