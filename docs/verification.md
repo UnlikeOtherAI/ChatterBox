@@ -89,7 +89,12 @@ dialogs, and session cards without changing the host's OS settings. Screenshots
 contain isolated synthetic fixtures. A larger fixture verifies board/message/audit/
 session/service page replacement, filter resets, Previous/First navigation, and
 full-height sidebar geometry while only main content scrolls. Packaged smoke tests repeat real stdio MCP
-communication and all four GUI flows using the built executable.
+communication and all four GUI flows using the built executable. On macOS, the
+test harness uses Playwright's CDP page-close path because its newer native
+`webContents.close` test path intermittently left Electron running after quit.
+The tests still call normal `app.close`; the application cleans up the service
+and database before completing its quit. Renderer sandboxing is explicitly
+enabled in source and packaged tests.
 
 ### Native build evidence
 

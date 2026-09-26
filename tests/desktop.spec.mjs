@@ -20,6 +20,7 @@ async function launch(empty = false, large = false, openBoard = true) {
   const app = await electron.launch({
     // Playwright otherwise emulates light mode and hides native theme changes.
     colorScheme: null,
+    chromiumSandbox: true,
     ...(process.env.CHATTERBOX_TEST_EXECUTABLE
       ? { executablePath: process.env.CHATTERBOX_TEST_EXECUTABLE, args: [] }
       : { args: ["."] }),
