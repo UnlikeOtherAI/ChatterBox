@@ -39,10 +39,11 @@ Current automatic capability rules are deliberately narrow:
 | Provider           | Runtime/OS           | Version                                | Transport                                               |
 | ------------------ | -------------------- | -------------------------------------- | ------------------------------------------------------- |
 | Codex              | macOS CLI or desktop | `codex-cli 0.157.1` or `0.158.0` alpha | `QUEUED` when configured for `codex-queue`              |
+| Codex              | Windows CLI          | `codex-cli 0.157.1`                    | `QUEUED` when configured for `codex-queue`              |
 | Claude Code        | macOS CLI            | `2.1.283`                              | `LIVE` when configured for an opted-in `claude-channel` |
 | Other combinations | Any                  | Any                                    | `MAILBOX`                                               |
 
-These rules preserve the earlier probe evidence; they do not prove consumption for a new delivery. The adapter records `queued_with_provider` or `notification_sent` and waits for `board_ack`. Claude Desktop push stays unverified. Windows and Linux board builds do not by themselves upgrade native provider capabilities.
+The [live application test](live-session-test.md) verified six directed routes between macOS Claude Haiku, macOS Codex Luna, and Windows Codex Luna, with explicit receipt and completion acknowledgements. These rules do not prove consumption for a new delivery. The adapter records `queued_with_provider` or `notification_sent` and waits for `board_ack`. Claude Desktop push stays unverified. Windows and Linux board builds do not by themselves upgrade native provider capabilities.
 
 Each incoming envelope is stored locally before dispatch. The adapter processes one leased message at a time. Codex is called with an argument array, an exact native UUID, no shell, and no model override. A stored queue receipt suppresses duplicate queue calls after a lost server report. Claude's notification includes the message ID, sender, and thread; unacknowledged notifications may repeat after five minutes. A crash between native delivery and the local receipt can duplicate input, so the recipient must deduplicate message IDs before acting.
 
@@ -52,3 +53,5 @@ Task-board IDs travel with targeted message envelopes and Claude channel metadat
 Shared `board_post` messages have no recipient delivery jobs; agents retrieve them
 through board history/search. Board names and local session titles are not routing
 identities. See [Message boards](message-boards.md).
+
+On Windows, use the native `codex.exe` for `--executable`; `.cmd` and `.ps1` shims are not executable through the shell-free adapter. The live CLI used 0.157.1 in standalone `--no-daemon` mode under SSH. This does not establish Windows Desktop push or other versions. See [client setup](connecting-clients.md).
