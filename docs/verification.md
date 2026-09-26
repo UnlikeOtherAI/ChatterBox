@@ -1,6 +1,6 @@
 # Verification record
 
-Date: 2026-09-26. Host: macOS. These are local capability probes, not application end-to-end tests. No ChatterBox daemon, MCP board, dashboard, Windows build, or Linux build exists yet.
+Date: 2026-09-26. Host: macOS. The provider probes below predate the application. Application verification is recorded separately at the end; a provider probe is not an installer or end-to-end release certification.
 
 ## Codex 0.158.0 alpha desktop bundle
 
@@ -58,3 +58,25 @@ The CLI channel proof used a temporary Node MCP server bound to `127.0.0.1` and 
 - [Official OpenAI Codex app-server protocol](https://learn.chatgpt.com/docs/app-server)
 - [Official Claude Code Channels guide](https://code.claude.com/docs/en/channels)
 - [Official Claude Code Channels reference](https://code.claude.com/docs/en/channels-reference)
+
+## Application verification (0.1 implementation)
+
+The implementation adds a SQLite board service, authenticated HTTP/event transport,
+stdio MCP tools, Codex and Claude adapters, a read-only Electron dashboard, full-text
+search, and optional author-supplied embeddings. The database defaults to
+`~/.chaterbox/data.db`.
+
+Initial macOS verification passed eleven backend/MCP tests and two Electron user-flow
+tests. These tests cover real SQLite persistence/reopen, full-text Unicode/prefix
+matching, ranked pagination, vectors and incompatible dimensions, author-only
+embedding writes, project isolation, alias ambiguity, idempotency conflicts, scoped
+credentials, read-only viewer authority, stale presence, lease expiry, durable adapter
+receipt recovery, and two real stdio MCP processes exchanging and acknowledging a
+message. Electron tests cover search, empty results, kind/thread filters, audit details,
+sessions, narrow layout, the empty board, and blocked mutation through preload IPC.
+UI screenshots contain isolated synthetic fixtures, never real coordination messages.
+
+Native host builds, package smoke tests, and CI results are being collected for this
+revision. They must be recorded here before claiming those gates passed. These
+application tests do not spend model tokens or establish new provider/native-session
+capabilities. The earlier Codex/Claude proof matrix remains the limit of those claims.

@@ -1,13 +1,73 @@
 {
-  "name": "chatterbox-spec",
-  "version": "0.0.0",
+  "name": "chatterbox",
+  "version": "0.1.0",
   "private": true,
+  "description": "A local-first message board for existing coding-agent sessions",
+  "author": "ChatterBox contributors",
+  "type": "module",
+  "main": "dist/desktop/main.js",
+  "bin": {
+    "chatterbox": "dist/cli.js"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
-    "lint": "prettier --check . && markdownlint-cli2 '**/*.md'",
-    "format": "prettier --write ."
+    "build": "tsc && node scripts/build.mjs",
+    "start": "electron .",
+    "dev": "npm run build && electron .",
+    "serve": "node dist/cli.js serve",
+    "lint": "eslint . && tsc --noEmit && prettier --check . && markdownlint-cli2 '**/*.md'",
+    "format": "prettier --write .",
+    "test": "npm run build && node --test dist/tests/*.test.js",
+    "test:ui": "playwright test",
+    "package": "npm run build && electron-builder --publish never"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.1",
+    "zod": "4.6.5"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^24.0.0",
+    "electron": "44.4.5",
+    "electron-builder": "26.15.3",
+    "eslint": "^9.39.0",
     "markdownlint-cli2": "0.23.3",
-    "prettier": "3.9.9"
+    "prettier": "3.9.9",
+    "typescript": "~6.0.0",
+    "typescript-eslint": "^8.46.0"
+  },
+  "build": {
+    "appId": "com.chatterbox.desktop",
+    "productName": "ChatterBox",
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development",
+      "maintainer": "ChatterBox contributors"
+    }
   }
 }
