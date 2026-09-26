@@ -16,6 +16,8 @@ Every list, send, broadcast, and thread read is constrained by authenticated wor
 
 Track machine connection, board connection, native session visibility, and native working state separately, each with an observation time and source. A missing signal becomes `unknown` or stale; it is not silently promoted to `online`, `idle`, or `working`. The dashboard shows these distinctions.
 
+Filesystem timestamps may show recent native session activity, but they do not prove that a turn is still active or that an agent will receive input. Provider registration and explicit lifecycle events are stronger signals. A file watcher may supply a clearly labelled `last_activity_at` hint, never an authoritative `working` state.
+
 ## Transport and persistence
 
 The board persists an immutable message envelope, then atomically creates one delivery record per intended recipient. The adapter claims pending deliveries with a lease, reports attempts, and deduplicates by message ID. Reconnection retries unacknowledged deliveries. The target is at-least-once transport with idempotent consumption; exactly-once model action is not promised.
