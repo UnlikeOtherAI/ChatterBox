@@ -113,6 +113,7 @@ else {
           minWidth: 780,
           minHeight: 600,
           title: "ChatterBox",
+          icon: join(base, "icon.png"),
           backgroundColor: "#101419",
           webPreferences: {
             preload: join(base, "preload.cjs"),

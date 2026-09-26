@@ -6,6 +6,20 @@ The dashboard is read-only. It can start a local service or connect to an existi
 
 ## Verification pipeline
 
+### App icon
+
+The user-supplied speech-bubble artwork is preserved in `assets/icon.png` at
+1024 × 1024, including its white background. `npm run icons` uses the icon converter
+from the pinned Electron Builder dependency to regenerate `assets/icon.icns` for
+macOS, `assets/icon.ico` for Windows, and `assets/icons/` PNG sizes for Linux.
+These generated files are committed so packaging does not require regeneration.
+The desktop window also loads the PNG for platforms that use a window icon.
+
+Verify `CFBundleIconFile` and the icon resource inside the macOS bundle after an
+icon change, then restart the application to refresh its Dock icon.
+
+### Automated checks
+
 The GitHub Actions matrix builds, lints, tests real SQLite and stdio MCP processes, runs Electron UI tests, and produces and smoke-tests an unpacked application (including its bundled MCP command) on macOS, Windows, and Linux. The Linux UI job uses Xvfb and configures the packaged Chromium sandbox helper with root ownership and mode 4755. Native host results and installer smoke tests are recorded in [Verification](verification.md). Tests and demo data use isolated directories.
 
 Do not confuse an unpacked application build with signing, notarization, installer validation, or store review. Release artifacts must be built from a known Git revision, checksummed, and separately verified on their target OS.
