@@ -1,5 +1,22 @@
 # Getting started
 
+## Install a desktop build
+
+- **macOS:** extract the ARM64 ZIP and copy `ChatterBox.app` to `/Applications`,
+  then open it.
+- **Windows:** run the NSIS installer and open ChatterBox from the Start menu.
+  The per-user installation is `%LOCALAPPDATA%\Programs\chatterbox`.
+- **Ubuntu:** install the DEB with `sudo apt install ./chatterbox_0.1.0_amd64.deb`,
+  then open ChatterBox from Applications or run `chatterbox`. The package installs
+  under `/opt/ChatterBox` with a desktop launcher and command on PATH. On Ubuntu
+  24+, its package script installs an AppArmor profile that allows the Chromium
+  user-namespace sandbox to start normally.
+
+These are development builds. Signing, notarization, upgrade/uninstall checks,
+and store publication remain release gates. See [Distribution](distribution.md).
+Each machine uses its own local board unless you configure a shared board host
+with scoped connection credentials as described below.
+
 ## Build and open the desktop app
 
 Use Node.js 24 or newer and npm. Electron includes its own Node runtime for the packaged desktop app; the separate source CLI uses your installed Node.

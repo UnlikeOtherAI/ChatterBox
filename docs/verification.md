@@ -112,6 +112,39 @@ not bypass Chromium's sandbox. The complete workflow is
 [Verify](https://github.com/rafiki270/ChatterBox/actions/workflows/lint.yml).
 Native Ubuntu's administrator-dependent launch gap is separate from CI evidence.
 
+### Native installations (2026-09-26)
+
+- **macOS 27 ARM64:** copied the verified application to `/Applications/ChatterBox.app`.
+  Its installed `app.asar` matched the tested artifact. Native accessibility showed
+  the installed file URL, board directory, and Connected state.
+- **Windows 11 x64:** the NSIS installer exited successfully, registered ChatterBox
+  0.1.0, and created a Start menu shortcut pointing to
+  `%LOCALAPPDATA%\Programs\chatterbox\ChatterBox.exe`. The installed main process
+  and renderer were running in the user's active desktop session.
+- **Ubuntu x64:** rebuilt the AppImage and DEB from
+  `ac5857c39e5d9fb1599ba4f95de12584c9a6ada6`, then installed the DEB. `dpkg-query`
+  reported `installed 0.1.0`, with the executable under `/opt/ChatterBox`, a
+  `/usr/bin/chatterbox` alternative, and an Applications launcher. The installed
+  app ran in the logged-in Wayland desktop session. Its renderer used
+  `--enable-sandbox`, `NoNewPrivs: 1`, and `Seccomp: 2`, supported by the package's
+  AppArmor user-namespace profile. No sandbox bypass was used.
+
+All three installed apps answered authenticated board reads. Each local SQLite
+file passed `PRAGMA integrity_check`. Test records were not inserted into these
+boards; each machine retains its own local connection configuration. Temporary
+launch helpers added no login/startup registration. The Mac and Windows binaries
+use implementation revision `64a1e971df678a353c3d488a292aea5eaf4f7e82`; later
+commits through the Linux build revision changed documentation only.
+
+Ubuntu's apt invocation also attempted to configure seven pre-existing incomplete
+kernel packages. Their `applespi` DKMS builds failed and apt returned 100, while
+ChatterBox itself configured successfully and passed launch checks. Those kernel
+package errors remain outside this app installation and require separate repair.
+
+This establishes fresh Windows/Ubuntu installation and Mac application placement.
+Upgrade, uninstall, signing, notarization, and store acceptance remain unverified.
+The rebuilt AppImage was retained as an artifact; it was not installed or launched.
+
 ### Menu bar and system tray (2026-09-26)
 
 Implementation revision: `64a1e971df678a353c3d488a292aea5eaf4f7e82`.
@@ -223,5 +256,5 @@ segments still need release validation.
 These application tests spend no model tokens and establish no additional
 provider/native-session capabilities. The earlier Codex/Claude proof matrix
 remains the limit of those claims. Store and Homebrew publication, signing,
-notarization, fresh installation/upgrade, and production Claude channel approval
+notarization, upgrade/uninstall, and production Claude channel approval
 are pending release gates, not completed features.
