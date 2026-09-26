@@ -1,5 +1,11 @@
 import { test, expect, _electron as electron } from "@playwright/test";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { resolve } from "node:path";
 import { createServer } from "node:net";
 import { seedDemo } from "../dist/tests/demo.js";
@@ -14,6 +20,9 @@ async function launch(empty = false, large = false, openBoard = true) {
   mkdirSync("work", { recursive: true });
   const directory = mkdtempSync(resolve("work/ui-"));
   seedDemo(directory, await freePort(), empty, large);
+  return start(directory, openBoard);
+}
+async function start(directory, openBoard = false) {
   const env = { ...process.env, CHATTERBOX_HOME: directory };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.CHATTERBOX_CONFIG;
@@ -42,6 +51,96 @@ async function launch(empty = false, large = false, openBoard = true) {
     throw error;
   }
 }
+
+async function clickMenu(app, id) {
+  await app.evaluate(({ Menu }, itemId) => {
+    const item = Menu.getApplicationMenu().getMenuItemById(itemId);
+    if (!item) throw new Error(`Missing native menu item: ${itemId}`);
+    item.click();
+  }, id);
+}
+
+test("tray-only preference survives restart, keeps the board online, and allows show, close and quit", async () => {
+  test.skip(!["darwin", "win32"].includes(process.platform));
+  const initial = await launch(true, false, false);
+  let app = initial.app;
+  const { directory } = initial;
+  const preference = resolve(directory, "desktop.json");
+  const visible = () =>
+    app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0]?.isVisible(),
+    );
+  const dockVisible = () => app.evaluate(({ app }) => app.dock.isVisible());
+  const quit = async () => {
+    const closed = app.waitForEvent("close");
+    // Native role-based Quit cannot be invoked with MenuItem.click() on macOS.
+    await app.evaluate(({ app }) => app.quit());
+    await closed;
+  };
+  try {
+    await clickMenu(app, "tray-only");
+    await expect.poll(visible).toBe(false);
+    expect(JSON.parse(readFileSync(preference, "utf8"))).toEqual({
+      tray_only: true,
+    });
+    if (process.platform === "darwin")
+      await expect.poll(dockVisible).toBe(false);
+    expect(
+      await app.evaluate(
+        ({ Menu }) =>
+          Menu.getApplicationMenu().getMenuItemById("tray-only").checked,
+      ),
+    ).toBe(true);
+    // A real authenticated service request still succeeds with no visible window.
+    expect(
+      await initial.page.evaluate(() =>
+        window.board.read("boards", { limit: 1 }),
+      ),
+    ).toHaveProperty("boards.0.name", "General");
+    await clickMenu(app, "show-main-window");
+    await expect.poll(visible).toBe(true);
+    await app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].close(),
+    );
+    await expect.poll(visible).toBe(false);
+    expect(
+      await app.evaluate(
+        ({ BrowserWindow }) => BrowserWindow.getAllWindows().length,
+      ),
+    ).toBe(1);
+    await quit();
+
+    ({ app } = await start(directory));
+    await expect.poll(visible).toBe(false);
+    if (process.platform === "darwin")
+      await expect.poll(dockVisible).toBe(false);
+    await clickMenu(app, "tray-only");
+    await expect.poll(visible).toBe(true);
+    if (process.platform === "darwin")
+      await expect.poll(dockVisible).toBe(true);
+    expect(JSON.parse(readFileSync(preference, "utf8"))).toEqual({
+      tray_only: false,
+    });
+    await quit();
+
+    ({ app } = await start(directory));
+    await expect.poll(visible).toBe(true);
+    await quit();
+    // A damaged preference must open normally rather than trap the app hidden.
+    writeFileSync(preference, "{");
+    ({ app } = await start(directory));
+    await expect.poll(visible).toBe(true);
+    expect(
+      await app.evaluate(
+        ({ Menu }) =>
+          Menu.getApplicationMenu().getMenuItemById("tray-only").checked,
+      ),
+    ).toBe(false);
+  } finally {
+    await app.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 test("board click-through, message search, details, sessions and read-only boundary", async () => {
   const { app, page, directory } = await launch();
   try {

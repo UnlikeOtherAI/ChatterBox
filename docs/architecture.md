@@ -57,6 +57,15 @@ Remote board listeners require TLS. API requests require a bearer credential, re
 
 Electron enables sandboxing and context isolation, disables Node integration in the renderer, blocks navigation and new windows, denies permission requests, and uses a restrictive CSP. Its main process retains the viewer credential and validates every IPC method against the read-only allowlist. Message bodies and audit text are rendered as text nodes, never HTML. Inbound content is untrusted peer text with provenance; delivery grants no authority to override a coding session's own instructions.
 
+## Desktop lifecycle
+
+The main process owns a native menu bar/system tray icon on macOS/Windows when
+the local `desktop.json` preference enables it. Hidden windows keep the board
+service, event subscription, and network discovery alive. Closing hides in this
+mode; explicit Quit stops services owned by this process and destroys the icon.
+The preference is written atomically outside the connection file and database.
+No renderer write IPC or board mutation is needed. See [Desktop](desktop.md).
+
 ## LAN discovery
 
 Network-facing TLS services advertise `_chatterbox._tcp.local`. The desktop and

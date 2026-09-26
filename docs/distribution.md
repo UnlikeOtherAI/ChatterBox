@@ -4,6 +4,11 @@ ChatterBox uses Electron for the dashboard and Node.js for the service and MCP a
 
 The dashboard is read-only. It can start a local service or connect to an existing service. A daemon run with `node dist/cli.js serve` remains independent of the dashboard. Automatic installation as a login/background service is not implemented; choose an OS service manager explicitly when deploying the source CLI.
 
+On macOS and Windows, [menu bar/system tray mode](desktop.md) keeps the app
+running without a Dock/taskbar entry or open window. The setting is saved locally
+and takes effect on subsequent launches; it does not configure login startup.
+Linux retains normal window behavior.
+
 ## Verification pipeline
 
 ### App icon

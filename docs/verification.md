@@ -104,12 +104,39 @@ enabled in source and packaged tests.
 | Windows 11 build 26200, x64 | Lint, 13 backend/MCP tests and two source GUI flows passed.                             | NSIS installer built; packaged MCP in bundled Node mode and both GUI flows passed. | Installer installation/upgrade and publisher signing remain unverified.                                                       |
 | Ubuntu, kernel 6.8, x64     | Lint and 13 backend/MCP tests passed using task-local Node 24.17.0.                     | AppImage and DEB built.                                                            | Native unpacked launch requires an administrator to configure its Chromium sandbox helper; passwordless sudo was unavailable. |
 
-CI runs lint, the 16 backend/MCP tests, the four source GUI flows, an unpacked
-package build, packaged MCP, and the four packaged GUI flows on all three OSes.
+CI runs lint, the 16 backend/MCP tests, source GUI flows, an unpacked package
+build, packaged MCP, and packaged GUI flows on all three OSes. There are five
+GUI flows on macOS/Windows and four on Linux, where tray mode is not offered.
 Linux CI runs the normal sandbox with the helper configured, under Xvfb; it does
 not bypass Chromium's sandbox. The complete workflow is
 [Verify](https://github.com/rafiki270/ChatterBox/actions/workflows/lint.yml).
 Native Ubuntu's administrator-dependent launch gap is separate from CI evidence.
+
+### Menu bar and system tray (2026-09-26)
+
+Implementation revision: `64a1e971df678a353c3d488a292aea5eaf4f7e82`.
+
+- macOS 27 ARM64: lint, all 16 backend/MCP tests, all five source GUI flows,
+  ZIP build, packaged MCP, and all five packaged GUI flows passed.
+- Windows 11 build 26200 x64: lint, all 16 backend/MCP tests, all five source GUI
+  flows, NSIS build, packaged MCP, and all five packaged GUI flows passed.
+- [Three-platform CI](https://github.com/rafiki270/ChatterBox/actions/runs/36272604762)
+  passed on that revision. Linux runs its four existing GUI flows and skips the
+  macOS/Windows-only tray flow; normal Linux window behavior is unchanged.
+
+The additional lifecycle flow enables tray mode, verifies a hidden window and
+(on macOS) hidden Dock entry, reads the real board service while hidden, shows
+the window, closes it without destroying it, and quits normally. Relaunch restores
+the hidden mode. Disabling restores the window and Dock; another launch opens
+normally. A malformed preference also opens in normal window mode.
+
+Tests use isolated data directories and no model calls. Native menu actions
+invoke the production callbacks; Quit exercises Electron's normal app lifecycle.
+The rebuilt Mac application was also launched outside Playwright: its native
+ChatterBox menu exposed the option, toggling wrote the expected local preference,
+and native Quit followed by relaunch returned to a connected board. The app was
+left in normal window mode so the user can choose the preference themselves.
+Signing and installer installation remain unverified.
 
 ### Shared boards and desktop navigation (2026-09-26)
 

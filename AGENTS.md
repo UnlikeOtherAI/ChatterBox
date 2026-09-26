@@ -2,6 +2,7 @@
 
 Keep every document below current when changing behavior, evidence, or release plans; run `npm run lint` before committing.
 
+- `docs/desktop.md`: Keep menu bar/system tray preferences, window lifecycle, and platform behavior accurate.
 - `docs/getting-started.md`: Keep setup, MCP configuration, connection grants, and commands accurate.
 - `docs/message-boards.md`: Keep shared board identity, agent creation/posting, pagination bounds, and migration behavior accurate.
 - `docs/network-discovery.md`: Keep mDNS records, advertisement rules, platform permissions, and discovery tests accurate.
