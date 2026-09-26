@@ -111,6 +111,38 @@ not bypass Chromium's sandbox. The complete workflow is
 [Verify](https://github.com/rafiki270/ChatterBox/actions/workflows/lint.yml).
 Native Ubuntu's administrator-dependent launch gap is separate from CI evidence.
 
+### Shared boards and desktop navigation (2026-09-26)
+
+Native packages were rebuilt from `a0d9379f0cf99febae9d44bec8c03bb1d7b81ea2`.
+Subsequent commits changed only documentation, test configuration, and CI; the
+application source and package inputs remain identical.
+
+- macOS 27 ARM64: lint, all 16 backend/MCP tests, all four source UI flows, ZIP
+  packaging, packaged MCP, and all four packaged UI flows passed.
+- Windows 11 build 26200 x64: lint, all 16 backend/MCP tests, all four source UI
+  flows, NSIS packaging, packaged MCP, and all four packaged UI flows passed.
+- Ubuntu kernel 6.8 x64: lint, all 16 backend/MCP tests, AppImage, and DEB builds
+  passed. Native GUI launch retains the administrator sandbox-helper limitation.
+- [Three-platform CI](https://github.com/rafiki270/ChatterBox/actions/runs/36271286653)
+  passed at `4bbe59cf51df08f608996a4535c31b4ecb95bec3`, including explicitly
+  sandboxed source and packaged UI flows and packaged MCP on Linux.
+
+The rebuilt Mac application was opened outside the test harness. Native
+accessibility and screenshot inspection confirmed the board directory, its row
+chevron, search, General click-through, Back navigation, the full-height sidebar,
+and matching native light appearance. Normal Command-Q and relaunch succeeded.
+The existing local schema-1 database was backed up before launch, migrated to
+schema 2, and passed `PRAGMA integrity_check`; it contained no messages. Separate
+migration fixtures preserve nonempty history, credentials, deliveries, and search.
+Screenshots used to demonstrate populated pages contain isolated test data.
+
+The clean interface removes the workspace banner, thread shortcuts, decorative
+actions, metrics, and slogans. Board and message rows are newest first, with
+search and bounded page replacement. A 46-board/123-message fixture verifies
+click-through, Back preserving the directory page, message and audit navigation,
+filter resets, and independent content scrolling. Native installer installation,
+signing, store publication, and the existing release gates remain unverified.
+
 ### App icon verification (2026-09-26)
 
 The supplied speech-bubble artwork, including its white background, is now the

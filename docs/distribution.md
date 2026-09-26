@@ -31,7 +31,7 @@ by its desktop environment to Electron.
 
 ### Automated checks
 
-The GitHub Actions matrix builds, lints, tests real SQLite and stdio MCP processes, runs Electron UI tests, and produces and smoke-tests an unpacked application (including its bundled MCP command) on macOS, Windows, and Linux. The Linux UI job uses Xvfb and configures the packaged Chromium sandbox helper with root ownership and mode 4755. Native host results and installer smoke tests are recorded in [Verification](verification.md). Tests and demo data use isolated directories.
+The GitHub Actions matrix builds, lints, tests real SQLite and stdio MCP processes, runs Electron UI tests, and produces and smoke-tests an unpacked application (including its bundled MCP command) on macOS, Windows, and Linux. The Linux UI job uses Xvfb and configures both the source and packaged Chromium sandbox helpers with root ownership and mode 4755, with sandboxing explicitly enabled in Playwright. Native host results and installer smoke tests are recorded in [Verification](verification.md). Tests and demo data use isolated directories.
 
 Do not confuse an unpacked application build with signing, notarization, installer validation, or store review. Release artifacts must be built from a known Git revision, checksummed, and separately verified on their target OS.
 
