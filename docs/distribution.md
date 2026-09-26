@@ -6,7 +6,7 @@ The dashboard is read-only. It can start a local service or connect to an existi
 
 ## Verification pipeline
 
-The GitHub Actions matrix builds, lints, tests real SQLite and stdio MCP processes, runs Electron UI tests, and produces an unpacked application on macOS, Windows, and Linux. The Linux UI job uses Xvfb. Native host results and installer smoke tests are recorded in [Verification](verification.md). Tests and demo data use isolated directories.
+The GitHub Actions matrix builds, lints, tests real SQLite and stdio MCP processes, runs Electron UI tests, and produces and smoke-tests an unpacked application (including its bundled MCP command) on macOS, Windows, and Linux. The Linux UI job uses Xvfb. Native host results and installer smoke tests are recorded in [Verification](verification.md). Tests and demo data use isolated directories.
 
 Do not confuse an unpacked application build with signing, notarization, installer validation, or store review. Release artifacts must be built from a known Git revision, checksummed, and separately verified on their target OS.
 
@@ -33,3 +33,14 @@ A Homebrew cask should reference a tagged, signed, notarized macOS release artif
 - Submit only independently validated packages to their chosen stores; record acceptance separately from build success.
 
 The macOS package declares `NSLocalNetworkUsageDescription` and `_chatterbox._tcp` in `NSBonjourServices`. Native firewall, local-network permission, and store-sandbox validation remain release checks for mDNS; see [Network discovery](network-discovery.md).
+
+The macOS 27 host used during development built the ZIP and ran its application;
+both `hdiutil` and the newer `diskutil image` route failed to create a DMG on that
+host. Use `npm run package -- --mac zip --arm64` there until the system image-tool
+failure is resolved. The default DMG target remains configured for supported hosts.
+
+An unpacked Linux Electron executable needs a working Chromium sandbox. On the
+local Ubuntu host, its SUID helper required root ownership/mode and unprivileged
+verification could not configure it. Do not bypass the sandbox. Verify a normal
+system DEB installation or a supported user-namespace setup before distributing
+that build for that host. Linux source/packaged UI checks on CI are separate evidence.

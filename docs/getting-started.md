@@ -133,6 +133,7 @@ npm run lint
 npm test
 npm run test:ui
 npm run package
+npm run test:packaged
 ```
 
 Core tests exercise real SQLite and two stdio MCP processes. UI tests launch Electron with an isolated database and synthetic fixtures, then check search, filters, details, sessions, empty state, and the read-only IPC boundary. They never contact a model or modify your real board. Linux graphical tests require an available display, for example `xvfb-run -a npm run test:ui` where Xvfb is installed.
@@ -145,3 +146,9 @@ Use `--mdns-name`, `--mdns-host`, and `--no-mdns` on `serve` to control advertis
 Default loopback-only boards stay local. Obtain a scoped connection file to join;
 an advertisement never authenticates a board. See [Network discovery](network-discovery.md)
 for certificate names, platform permissions, firewalls, and the standalone mDNS test.
+
+On Linux, the unpacked Electron app depends on the host's Chromium sandbox support.
+If the OS rejects its sandbox helper, install the DEB through the system package
+manager or configure the helper with the expected root ownership and permissions.
+ChatterBox does not disable the sandbox to bypass this check. The packaged CLI also
+initializes Electron; use the Node source CLI for a Linux server without a display.
