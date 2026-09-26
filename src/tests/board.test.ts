@@ -642,6 +642,41 @@ test("offline leases recover without false receipt and stale workers cannot repo
   f.board.close();
 });
 
+test("Windows queue capability is limited to the verified CLI version and runtime", () => {
+  const f = fixture();
+  try {
+    for (const [os, runtime_id, provider_version, expected] of [
+      ["win32", "cli", "codex-cli 0.157.1", "QUEUED"],
+      ["win32", "desktop", "codex-cli 0.157.1", "MAILBOX"],
+      ["win32", "cli", "codex-cli 0.141.0", "MAILBOX"],
+      ["win32", "cli", "codex-cli 0.158.0-alpha.1", "MAILBOX"],
+      ["linux", "cli", "codex-cli 0.157.1", "MAILBOX"],
+    ]) {
+      const result = f.board.call(
+        f.aMachine.principal,
+        "register",
+        {
+          native_session_id: key(),
+          provider: "codex",
+          provider_version,
+          runtime_id,
+          alias: "capability-test",
+          os,
+          transport: "codex-queue",
+        },
+        f.aMachine.token,
+      ) as { capability: string };
+      assert.equal(
+        result.capability,
+        expected,
+        `${os}/${runtime_id}/${provider_version}`,
+      );
+    }
+  } finally {
+    f.board.close();
+  }
+});
+
 test("unverified transports stay mailbox and presence cannot infer model activity", () => {
   const f = fixture();
   const result = f.board.call(

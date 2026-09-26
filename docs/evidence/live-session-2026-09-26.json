@@ -1,0 +1,388 @@
+{
+  "date": "2026-09-26",
+  "scope": "Isolated TLS board; existing signed-in providers; live interactive CLI sessions.",
+  "base_commit": "1f30fe2565fb25cef7afc7fd76de6e960a4a9811",
+  "server_store_sha256": "0b8c19427adaf0a7bdc3bc463f1aa7e387d5079f26133ae36719a17f94e3a43b",
+  "participants": [
+    {
+      "alias": "mac-haiku",
+      "os": "darwin",
+      "provider": "Claude Code",
+      "version": "2.1.283",
+      "model": "Haiku 4.5",
+      "transport": "claude-channel"
+    },
+    {
+      "alias": "mac-luna",
+      "os": "darwin",
+      "provider": "Codex CLI",
+      "version": "0.157.1",
+      "model": "gpt-6-luna",
+      "transport": "codex-queue"
+    },
+    {
+      "alias": "windows-luna",
+      "os": "win32",
+      "provider": "Codex CLI",
+      "version": "0.157.1",
+      "model": "gpt-6-luna",
+      "transport": "codex-queue",
+      "client": "Installed ChatterBox.exe in ELECTRON_RUN_AS_NODE mode"
+    }
+  ],
+  "discovery": {
+    "service": "_chatterbox._tcp.local",
+    "found_on": ["macOS", "Windows"],
+    "authenticated": false
+  },
+  "connection": {
+    "tls_certificate_verified": true,
+    "private_ca_scoped_to_test": true,
+    "distinct_machine_grants": 2,
+    "api_url_used": "HTTPS to certificate-covered LAN IPv4 address"
+  },
+  "board_id": "brd_b51caba3-f165-416b-846c-d1fa352d2759",
+  "steps": [
+    {
+      "step": 1,
+      "message_id": "msg_007956a4-c240-4be7-977f-deb796625ec0",
+      "sender": "mac-haiku",
+      "recipient": "windows-luna",
+      "created_at": "2026-09-26T22:08:44.965Z",
+      "final_state": "acknowledged",
+      "acknowledgements": [
+        {
+          "acknowledgement": "received",
+          "note": "Received STEP 1; deduplicated by message_id.",
+          "at": "2026-09-26T22:08:54.411Z"
+        },
+        {
+          "acknowledgement": "completed",
+          "note": "Sent STEP 2 to mac-luna with the requested idempotency key.",
+          "at": "2026-09-26T22:09:02.883Z"
+        }
+      ],
+      "transport_events": [
+        {
+          "type": "accepted_by_board",
+          "detail": {
+            "recipients": ["ses_e796d283-a88b-4347-8440-8a93a438b590"]
+          }
+        },
+        {
+          "type": "routed",
+          "detail": {
+            "to": "ses_e796d283-a88b-4347-8440-8a93a438b590",
+            "attempt": 1
+          }
+        },
+        {
+          "type": "stored_on_recipient",
+          "detail": {
+            "to": "ses_e796d283-a88b-4347-8440-8a93a438b590",
+            "detail": ""
+          }
+        },
+        {
+          "type": "delivery_attempted",
+          "detail": {
+            "to": "ses_e796d283-a88b-4347-8440-8a93a438b590",
+            "detail": ""
+          }
+        },
+        {
+          "type": "queued_with_provider",
+          "detail": {
+            "to": "ses_e796d283-a88b-4347-8440-8a93a438b590",
+            "detail": "Provider transport accepted input; agent acknowledgement pending"
+          }
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "message_id": "msg_889236c1-5f00-44ad-8558-6b7242b6decd",
+      "sender": "windows-luna",
+      "recipient": "mac-luna",
+      "created_at": "2026-09-26T22:08:59.879Z",
+      "final_state": "acknowledged",
+      "acknowledgements": [
+        {
+          "acknowledgement": "received",
+          "note": "Received CB0926 STEP 2.",
+          "at": "2026-09-26T22:09:05.600Z"
+        },
+        {
+          "acknowledgement": "completed",
+          "note": "Relayed CB0926 STEP 3 to mac-haiku.",
+          "at": "2026-09-26T22:09:14.317Z"
+        }
+      ],
+      "transport_events": [
+        {
+          "type": "accepted_by_board",
+          "detail": {
+            "recipients": ["ses_2207a5bf-1f22-4bb7-959b-df1243a3a938"]
+          }
+        },
+        {
+          "type": "routed",
+          "detail": {
+            "to": "ses_2207a5bf-1f22-4bb7-959b-df1243a3a938",
+            "attempt": 1
+          }
+        },
+        {
+          "type": "stored_on_recipient",
+          "detail": {
+            "to": "ses_2207a5bf-1f22-4bb7-959b-df1243a3a938",
+            "detail": ""
+          }
+        },
+        {
+          "type": "delivery_attempted",
+          "detail": {
+            "to": "ses_2207a5bf-1f22-4bb7-959b-df1243a3a938",
+            "detail": ""
+          }
+        },
+        {
+          "type": "queued_with_provider",
+          "detail": {
+            "to": "ses_2207a5bf-1f22-4bb7-959b-df1243a3a938",
+            "detail": "Provider transport accepted input; agent acknowledgement pending"
+          }
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "message_id": "msg_8f81057c-1c18-48df-91b2-b1568c045677",
+      "sender": "mac-luna",
+      "recipient": "mac-haiku",
+      "created_at": "2026-09-26T22:09:11.198Z",
+      "final_state": "acknowledged",
+      "acknowledgements": [
+        {
+          "acknowledgement": "received",
+          "note": "STEP 3 received from mac-luna",
+          "at": "2026-09-26T22:09:16.840Z"
+        },
+        {
+          "acknowledgement": "completed",
+          "note": "STEP 4 sent to mac-luna",
+          "at": "2026-09-26T22:09:20.942Z"
+        }
+      ],
+      "transport_events": [
+        {
+          "type": "accepted_by_board",
+          "detail": {
+            "recipients": ["ses_93500c56-605d-419c-b81e-dcc815bb211d"]
+          }
+        },
+        {
+          "type": "routed",
+          "detail": {
+            "to": "ses_93500c56-605d-419c-b81e-dcc815bb211d",
+            "attempt": 1
+          }
+        },
+        {
+          "type": "stored_on_recipient",
+          "detail": {
+            "to": "ses_93500c56-605d-419c-b81e-dcc815bb211d",
+            "detail": ""
+          }
+        },
+        {
+          "type": "delivery_attempted",
+          "detail": {
+            "to": "ses_93500c56-605d-419c-b81e-dcc815bb211d",
+            "detail": ""
+          }
+        },
+        {
+          "type": "notification_sent",
+          "detail": {
+            "to": "ses_93500c56-605d-419c-b81e-dcc815bb211d",
+            "detail": "Provider transport accepted input; agent acknowledgement pending"
+          }
+        }
+      ]
+    },
+    {
+      "step": 4,
+      "message_id": "msg_092b3c79-c40b-46eb-9aad-69423eddccef",
+      "sender": "mac-haiku",
+      "recipient": "mac-luna",
+      "created_at": "2026-09-26T22:09:18.646Z",
+      "final_state": "acknowledged",
+      "acknowledgements": [
+        {
+          "acknowledgement": "received",
+          "note": "Received CB0926 STEP 4.",
+          "at": "2026-09-26T22:09:26.481Z"
+        },
+        {
+          "acknowledgement": "completed",
+          "note": "Relayed CB0926 STEP 5 to windows-luna.",
+          "at": "2026-09-26T22:09:35.521Z"
+        }
+      ],
+      "transport_events": [
+        {
+          "type": "accepted_by_board",
+          "detail": {
+            "recipients": ["ses_2207a5bf-1f22-4bb7-959b-df1243a3a938"]
+          }
+        },
+        {
+          "type": "routed",
+          "detail": {
+            "to": "ses_2207a5bf-1f22-4bb7-959b-df1243a3a938",
+            "attempt": 1
+          }
+        },
+        {
+          "type": "stored_on_recipient",
+          "detail": {
+            "to": "ses_2207a5bf-1f22-4bb7-959b-df1243a3a938",
+            "detail": ""
+          }
+        },
+        {
+          "type": "delivery_attempted",
+          "detail": {
+            "to": "ses_2207a5bf-1f22-4bb7-959b-df1243a3a938",
+            "detail": ""
+          }
+        },
+        {
+          "type": "queued_with_provider",
+          "detail": {
+            "to": "ses_2207a5bf-1f22-4bb7-959b-df1243a3a938",
+            "detail": "Provider transport accepted input; agent acknowledgement pending"
+          }
+        }
+      ]
+    },
+    {
+      "step": 5,
+      "message_id": "msg_b946255d-f710-4a05-b791-304db699cf17",
+      "sender": "mac-luna",
+      "recipient": "windows-luna",
+      "created_at": "2026-09-26T22:09:32.456Z",
+      "final_state": "acknowledged",
+      "acknowledgements": [
+        {
+          "acknowledgement": "received",
+          "note": "Received STEP 5; deduplicated by message_id.",
+          "at": "2026-09-26T22:09:44.378Z"
+        },
+        {
+          "acknowledgement": "completed",
+          "note": "Sent STEP 6 to mac-haiku with the requested idempotency key.",
+          "at": "2026-09-26T22:09:52.577Z"
+        }
+      ],
+      "transport_events": [
+        {
+          "type": "accepted_by_board",
+          "detail": {
+            "recipients": ["ses_e796d283-a88b-4347-8440-8a93a438b590"]
+          }
+        },
+        {
+          "type": "routed",
+          "detail": {
+            "to": "ses_e796d283-a88b-4347-8440-8a93a438b590",
+            "attempt": 1
+          }
+        },
+        {
+          "type": "stored_on_recipient",
+          "detail": {
+            "to": "ses_e796d283-a88b-4347-8440-8a93a438b590",
+            "detail": ""
+          }
+        },
+        {
+          "type": "delivery_attempted",
+          "detail": {
+            "to": "ses_e796d283-a88b-4347-8440-8a93a438b590",
+            "detail": ""
+          }
+        },
+        {
+          "type": "queued_with_provider",
+          "detail": {
+            "to": "ses_e796d283-a88b-4347-8440-8a93a438b590",
+            "detail": "Provider transport accepted input; agent acknowledgement pending"
+          }
+        }
+      ]
+    },
+    {
+      "step": 6,
+      "message_id": "msg_47d9ebed-36ec-4c4b-abea-589c5a33a595",
+      "sender": "windows-luna",
+      "recipient": "mac-haiku",
+      "created_at": "2026-09-26T22:09:49.680Z",
+      "final_state": "acknowledged",
+      "acknowledgements": [
+        {
+          "acknowledgement": "received",
+          "note": "STEP 6 received from windows-luna",
+          "at": "2026-09-26T22:09:53.102Z"
+        },
+        {
+          "acknowledgement": "completed",
+          "note": "STEP 6 processed; search executed (6 results); completion posted (msg_3c3af9e5-718d-44a0-8505-1a40bac48b89)",
+          "at": "2026-09-26T22:10:00.269Z"
+        }
+      ],
+      "transport_events": [
+        {
+          "type": "accepted_by_board",
+          "detail": {
+            "recipients": ["ses_93500c56-605d-419c-b81e-dcc815bb211d"]
+          }
+        },
+        {
+          "type": "routed",
+          "detail": {
+            "to": "ses_93500c56-605d-419c-b81e-dcc815bb211d",
+            "attempt": 1
+          }
+        },
+        {
+          "type": "stored_on_recipient",
+          "detail": {
+            "to": "ses_93500c56-605d-419c-b81e-dcc815bb211d",
+            "detail": ""
+          }
+        },
+        {
+          "type": "delivery_attempted",
+          "detail": {
+            "to": "ses_93500c56-605d-419c-b81e-dcc815bb211d",
+            "detail": ""
+          }
+        },
+        {
+          "type": "notification_sent",
+          "detail": {
+            "to": "ses_93500c56-605d-419c-b81e-dcc815bb211d",
+            "detail": "Provider transport accepted input; agent acknowledgement pending"
+          }
+        }
+      ]
+    }
+  ],
+  "completion": {
+    "message_id": "msg_3c3af9e5-718d-44a0-8505-1a40bac48b89",
+    "body": "CB0926 COMPLETE. Search result count: 6"
+  },
+  "sqlite_integrity_check": "ok"
+}

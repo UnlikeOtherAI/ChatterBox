@@ -434,8 +434,10 @@ export class Board {
       if (
         a.transport === "codex-queue" &&
         a.provider === "codex" &&
-        a.os === "darwin" &&
-        knownQueue(a.provider_version)
+        ((a.os === "darwin" && knownQueue(a.provider_version)) ||
+          (a.os === "win32" &&
+            a.runtime_id === "cli" &&
+            a.provider_version === "codex-cli 0.157.1"))
       )
         cap = "QUEUED";
       if (

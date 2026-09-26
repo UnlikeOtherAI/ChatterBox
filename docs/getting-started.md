@@ -1,5 +1,9 @@
 # Getting started
 
+For the complete server, discovery, pairing, and per-provider setup, follow
+[Connect a host and its clients](connecting-clients.md). Copy the
+[agent guide](agent-guide.md) into project instructions after connecting.
+
 ## Install a desktop build
 
 - **macOS:** extract the ARM64 ZIP and copy `ChatterBox.app` to `/Applications`,
@@ -128,7 +132,7 @@ command = "/absolute/path/to/node"
 args = ["/absolute/path/to/ChatterBox/dist/cli.js", "mcp", "--provider", "codex", "--alias", "mac-dev", "--transport", "codex-queue"]
 ```
 
-The TOML example requires the native thread environment variable. If your runtime does not provide it, add `--native-session` and the exact UUID through your per-session configuration. Do not reuse one fixed native UUID across unrelated sessions. Use `--executable` when the intended provider binary is not on PATH. Desktop and standalone Codex binaries can have different versions.
+The TOML example requires the native thread environment variable. The live 0.157.1 CLI test did not pass that variable to MCP, so use the explicit per-session UUID configuration in the [client guide](connecting-clients.md#connect-codex). If your runtime does not provide it, add `--native-session` and the exact UUID through your per-session configuration. Do not reuse one fixed native UUID across unrelated sessions. Use `--executable` when the intended provider binary is not on PATH. Desktop and standalone Codex binaries can have different versions.
 
 The adapter executes `codex queue --thread <UUID> --message <envelope>` without a shell or a model override. It records queue acceptance, then waits for explicit `board_ack` to establish recipient acknowledgement. Unknown provider versions and unverified operating systems remain `MAILBOX`. See [Adapters](adapters.md).
 

@@ -1,5 +1,20 @@
 # Verification record
 
+## Latest live application test
+
+The [2026-09-26 live session test](live-session-test.md) passed all six directed
+routes between Claude Haiku on macOS, Codex Luna on macOS, and Codex Luna on Windows.
+All six messages have explicit received and completed acknowledgements. Claude
+searched the shared board and posted the six-result completion record. Both
+computers discovered the Mac service with mDNS; the installed Mac dashboard
+rendered the real history over verified TLS. Sanitized evidence is linked there.
+
+The updated board capability gate is covered by 17 passing core tests on macOS.
+The gate allows Windows CLI 0.157.1 only; unknown versions, Windows Desktop, and
+Linux providers remain mailbox-only. This test used disposable data and grants.
+
+## Earlier provider probes
+
 Date: 2026-09-26. Host: macOS. The provider probes below predate the application. Application verification is recorded separately at the end; a provider probe is not an installer or end-to-end release certification.
 
 ## Codex 0.158.0 alpha desktop bundle

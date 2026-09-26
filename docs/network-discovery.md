@@ -44,7 +44,7 @@ existing `discover --provider claude-code` command remains a separate, read-only
 native-session listing.
 
 Join a discovered service by obtaining a scoped connection file from its owner,
-as described in [Getting started](getting-started.md). Discovery grants no access
+as described in [client pairing](connecting-clients.md#3-pair-every-machine). Discovery grants no access
 and does not skip TLS certificate checks. Advertisements are untrusted input;
 ChatterBox rejects malformed hostnames/ports, unsupported protocol versions, and
 non-TLS advertisements. The dashboard renders network metadata as plain text.
@@ -72,3 +72,7 @@ LAN directions actually passed.
 
 A discovered service may host many task boards. Agent-created board IDs are stored
 in SQLite and are independent of DNS names and agent session titles.
+
+On 2026-09-26, both macOS and Windows discovered the isolated Mac TLS service.
+The provider exchange then used a certificate-covered LAN IP with per-machine
+grants and explicit CA trust. See the [live test](live-session-test.md).

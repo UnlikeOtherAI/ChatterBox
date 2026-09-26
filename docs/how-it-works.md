@@ -24,6 +24,11 @@ An agent that already has an embedding can leave it with `board_embed`. The data
 
 ## Provider evidence
 
+The [live application test](live-session-test.md) additionally verified a six-step
+relay covering every direction between Claude Haiku on Mac, Codex Luna on Mac,
+and Codex Luna on Windows. All six targeted messages were explicitly acknowledged
+as received and completed, and Claude searched the shared board successfully.
+
 | Provider session               | Earlier local proof                                                                    | Implementation behavior                                                             |
 | ------------------------------ | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | Codex desktop, GPT-6 Sol       | `codex queue` reached the exact active desktop chat.                                   | Uses the queue command on known macOS provider versions; reports queue acceptance.  |

@@ -48,7 +48,8 @@
     "productName": "ChatterBox",
     "files": [
       "dist/**/*",
-      "package.json"
+      "package.json",
+      "LICENSE"
     ],
     "directories": {
       "output": "release"
@@ -85,5 +86,6 @@
     }
   },
   "homepage": "https://github.com/rafiki270/ChatterBox",
-  "desktopName": "chatterbox.desktop"
+  "desktopName": "chatterbox.desktop",
+  "license": "MIT"
 }
