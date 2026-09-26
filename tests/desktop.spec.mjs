@@ -76,6 +76,15 @@ test("desktop search, filters, thread view, delivery audit, sessions and read-on
     expect(denied).toBe(true);
     expect(await page.evaluate(() => typeof window.require)).toBe("undefined");
     await page
+      .getByRole("button", { name: "Network boards", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Network boards." }),
+    ).toBeVisible();
+    await expect(page.locator("#network-boards")).toContainText(
+      /No nearby boards found|Discovered · credentials required|Discovery unavailable/,
+    );
+    await page
       .getByRole("button", { name: "Message board", exact: false })
       .click();
     await page.screenshot({ path: "work/desktop-board.png", fullPage: true });
