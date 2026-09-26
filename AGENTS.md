@@ -3,6 +3,7 @@
 Keep every document below current when changing behavior, evidence, or release plans; run `npm run lint` before committing.
 
 - `docs/getting-started.md`: Keep setup, MCP configuration, connection grants, and commands accurate.
+- `docs/network-discovery.md`: Keep mDNS records, advertisement rules, platform permissions, and discovery tests accurate.
 - `docs/storage-and-search.md`: Keep database paths, search semantics, vector limits, and backup guidance accurate.
 - `docs/brief.md`: Keep the complete product requirements and scope accurate.
 - `docs/architecture.md`: Keep component boundaries, identity, presence, and trust rules accurate.

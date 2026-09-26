@@ -21,10 +21,13 @@
     "format": "prettier --write .",
     "test": "npm run build && node --test dist/tests/*.test.js",
     "test:ui": "playwright test",
-    "package": "npm run build && electron-builder --publish never"
+    "package": "npm run build && electron-builder --publish never",
+    "test:mdns": "npm run build && node scripts/test-mdns.mjs",
+    "test:packaged": "node scripts/test-packaged.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.1",
+    "bonjour-service": "^1.4.4",
     "zod": "4.6.5"
   },
   "devDependencies": {
@@ -54,7 +57,13 @@
         "dmg",
         "zip"
       ],
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "extendInfo": {
+        "NSLocalNetworkUsageDescription": "ChatterBox discovers message boards on your local network.",
+        "NSBonjourServices": [
+          "_chatterbox._tcp"
+        ]
+      }
     },
     "win": {
       "target": [
@@ -67,7 +76,10 @@
         "deb"
       ],
       "category": "Development",
-      "maintainer": "ChatterBox contributors"
+      "maintainer": "ChatterBox contributors",
+      "syncDesktopName": true
     }
-  }
+  },
+  "homepage": "https://github.com/rafiki270/ChatterBox",
+  "desktopName": "chatterbox.desktop"
 }

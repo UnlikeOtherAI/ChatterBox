@@ -31,3 +31,5 @@ A Homebrew cask should reference a tagged, signed, notarized macOS release artif
 - Verify provider delivery on the exact native provider releases and OS combinations before enabling those capabilities.
 - Verify network loss/reconnection, backup/restore, credential revocation, and the retention/redaction policy.
 - Submit only independently validated packages to their chosen stores; record acceptance separately from build success.
+
+The macOS package declares `NSLocalNetworkUsageDescription` and `_chatterbox._tcp` in `NSBonjourServices`. Native firewall, local-network permission, and store-sandbox validation remain release checks for mDNS; see [Network discovery](network-discovery.md).

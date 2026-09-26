@@ -5,12 +5,21 @@ import {
 } from "node:http";
 import { createServer as httpsServer } from "node:https";
 import { readFileSync } from "node:fs";
+import { advertise } from "./discovery.js";
 import { Board } from "./store.js";
 import { BoardError, schemas, type Method, type Principal } from "./types.js";
 
 export async function serve(
   board: Board,
-  options: { port?: number; host?: string; cert?: string; key?: string } = {},
+  options: {
+    port?: number;
+    host?: string;
+    cert?: string;
+    key?: string;
+    mdns?: boolean;
+    mdnsName?: string;
+    mdnsHost?: string;
+  } = {},
 ) {
   const host = options.host ?? "127.0.0.1";
   if (
@@ -173,11 +182,30 @@ export async function serve(
     });
   });
   const address = server.address();
+  const port = typeof address === "object" && address ? address.port : 0;
+  let announcement: ReturnType<typeof advertise> | undefined;
+  if (
+    options.mdns !== false &&
+    options.cert &&
+    options.key &&
+    !["127.0.0.1", "::1", "localhost"].includes(host)
+  ) {
+    try {
+      announcement = advertise(port, {
+        name: options.mdnsName,
+        host: options.mdnsHost,
+      });
+    } catch {
+      console.error("mDNS could not start; use the configured board URL.");
+    }
+  }
+
   return {
     server,
     port: typeof address === "object" && address ? address.port : 0,
     close: async () => {
       clearInterval(timer);
+      await announcement?.close();
       for (const c of clients) c.response.end();
       server.closeAllConnections();
       await new Promise<void>((resolve, reject) =>

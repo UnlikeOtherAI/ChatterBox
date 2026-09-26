@@ -5,6 +5,7 @@ import { join, dirname } from "node:path";
 import { Board } from "../store.js";
 import { initialize, readConfig, databasePath } from "../config.js";
 import { serve } from "../server.js";
+import { Discovery } from "../discovery.js";
 import { Client } from "../client.js";
 import { schemas, type Method } from "../types.js";
 
@@ -12,6 +13,7 @@ const base = dirname(fileURLToPath(import.meta.url));
 const entry = pathToFileURL(join(base, "../ui/index.html")).href;
 let service: Awaited<ReturnType<typeof serve>> | undefined;
 let store: Board | undefined;
+let discovery: Discovery | undefined;
 let window: BrowserWindow | undefined;
 const abort = new AbortController();
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -66,6 +68,24 @@ else {
           project: config.project_id,
           version: app.getVersion(),
         };
+      });
+      try {
+        discovery = new Discovery(() =>
+          window?.webContents.send("board:changed"),
+        );
+      } catch {
+        console.error(
+          "Local network discovery is unavailable; manual connections still work.",
+        );
+      }
+      ipcMain.handle("board:discover", (event) => {
+        verify(event);
+        return (
+          discovery?.snapshot() ?? {
+            boards: [],
+            error: "Discovery is unavailable",
+          }
+        );
       });
       Menu.setApplicationMenu(
         Menu.buildFromTemplate([
@@ -150,6 +170,7 @@ else {
     closing = true;
     event.preventDefault();
     abort.abort();
+    discovery?.close();
     void (service?.close() ?? Promise.resolve()).finally(() => {
       store?.close();
       app.quit();

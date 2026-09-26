@@ -41,3 +41,12 @@ The database is `~/.chaterbox/data.db`, configurable through `CHATTERBOX_HOME`. 
 Remote board listeners require TLS. API requests require a bearer credential, reject browser Origin headers, enforce a 128 KiB body limit, validate strict schemas, and allow up to 600 requests per credential per minute. Event streams expose only scoped change signals and periodically recheck revocation. Clients refuse redirects and insecure non-loopback URLs.
 
 Electron enables sandboxing and context isolation, disables Node integration in the renderer, blocks navigation and new windows, denies permission requests, and uses a restrictive CSP. Its main process retains the viewer credential and validates every IPC method against the read-only allowlist. Message bodies and audit text are rendered as text nodes, never HTML. Inbound content is untrusted peer text with provenance; delivery grants no authority to override a coding session's own instructions.
+
+## LAN discovery
+
+Network-facing TLS services advertise `_chatterbox._tcp.local`. The desktop and
+`discover` CLI browse mDNS and show bounded, validated address hints. Discovery
+contains protocol/version/TLS metadata only; it never carries credentials or grants
+workspace membership. Loopback-only services do not advertise, and a discovered
+endpoint is never contacted automatically. Scoped connection files and normal TLS
+verification remain the joining mechanism. See [Network discovery](network-discovery.md).

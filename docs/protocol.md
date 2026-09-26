@@ -77,3 +77,11 @@ Transport states are `accepted_by_board`, `stored_on_recipient`, `delivery_attem
 - `QUEUED`: the tested provider queue interface is available; consumption timing remains controlled by the provider.
 - `CHECKPOINT`: reserved for a future verified lifecycle adapter; none is implemented.
 - `MAILBOX`: explicit retrieval only, including unknown versions and unverified platforms.
+
+## mDNS discovery record
+
+A reachable TLS service publishes `_chatterbox._tcp.local` with an SRV host/port and
+TXT fields `protocol=1`, `version=0.1.0`, `tls=1`. These records are unauthenticated
+location hints; they do not create session or workspace authority. Loopback-only
+services do not advertise. The desktop exposes a separate read-only discovery IPC
+method; mDNS is not an agent messaging transport. See [Network discovery](network-discovery.md).

@@ -16,6 +16,8 @@ import {
   saveConfig,
   checkUrl,
 } from "./config.js";
+import { Discovery } from "./discovery.js";
+import { setTimeout as delay } from "node:timers/promises";
 import { runMcp } from "./mcp.js";
 import { schemas } from "./types.js";
 
@@ -30,6 +32,7 @@ chatterbox grant --project NAME --url https://board.example --out FILE
 chatterbox revoke --credential KEY_ID
 chatterbox credentials
 chatterbox backup --out FILE
+chatterbox discover [--seconds 5]
 chatterbox discover --provider claude-code [--executable PATH]
 
 Data: ~/.chaterbox/data.db (override directory with CHATTERBOX_HOME).
@@ -59,9 +62,13 @@ export async function runCli(args = process.argv.slice(2)) {
         "url",
         "out",
         "credential",
+        "seconds",
+        "mdns-name",
+        "mdns-host",
       ].map((k) => [k, { type: "string" as const }]),
     );
   options.help = { type: "boolean" };
+  options["no-mdns"] = { type: "boolean" };
   const { values, positionals } = parseArgs({
     args,
     allowPositionals: true,
@@ -101,6 +108,9 @@ export async function runCli(args = process.argv.slice(2)) {
       port,
       cert: opt("cert") || undefined,
       key: opt("key") || undefined,
+      mdns: !v["no-mdns"],
+      mdnsName: opt("mdns-name") || undefined,
+      mdnsHost: opt("mdns-host") || undefined,
     });
     console.log(
       `ChatterBox listening on ${opt("host", "127.0.0.1")}:${service.port}`,
@@ -159,6 +169,19 @@ export async function runCli(args = process.argv.slice(2)) {
       registration,
       executable,
     );
+    return;
+  }
+  if (command === "discover" && !opt("provider")) {
+    const seconds = Number(opt("seconds", "5"));
+    if (!Number.isFinite(seconds) || seconds < 1 || seconds > 60)
+      throw new Error("Discovery duration must be between 1 and 60 seconds");
+    const discovery = new Discovery();
+    try {
+      await delay(seconds * 1000);
+      console.log(JSON.stringify(discovery.snapshot(), null, 2));
+    } finally {
+      discovery.close();
+    }
     return;
   }
   if (command === "discover") {

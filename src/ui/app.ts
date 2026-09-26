@@ -1,9 +1,11 @@
+import type { DiscoveredBoard } from "../discovery.js";
 import type { Message, Session, Method } from "../types.js";
 type Page = { messages: Message[]; cursor: string | null; mode?: string };
 declare global {
   interface Window {
     board: {
       read<T>(method: Method, args: unknown): Promise<T>;
+      discover(): Promise<{ boards: DiscoveredBoard[]; error: string | null }>;
       context(): Promise<{
         project: string;
         workspace: string;
@@ -333,7 +335,46 @@ async function loadMessages(more = false) {
     if (generation === request) showError(error);
   }
 }
+async function renderNetwork() {
+  try {
+    const discovery = await window.board.discover();
+    const root = el("network-boards");
+    root.replaceChildren();
+    for (const board of discovery.boards) {
+      const card = node("article", "", "session-card");
+      card.append(node("h2", board.name), node("p", board.url));
+      const list = node("dl");
+      kv(list, "Status", "Discovered · credentials required");
+      kv(
+        list,
+        "Protocol",
+        `ChatterBox ${board.protocol} · version ${board.version}`,
+      );
+      kv(list, "Network addresses", board.addresses.join(", ") || board.host);
+      card.append(list);
+      root.append(card);
+    }
+    if (!discovery.boards.length)
+      root.append(
+        empty(
+          "No nearby boards found",
+          discovery.error ??
+            "Only reachable TLS board services advertise. Make sure the service is listening on the LAN and UDP port 5353 is allowed. Local-only boards stay private.",
+        ),
+      );
+  } catch (error) {
+    el("network-boards").replaceChildren(
+      empty(
+        "Discovery unavailable",
+        error instanceof Error
+          ? error.message
+          : "Check local network permissions.",
+      ),
+    );
+  }
+}
 async function refresh() {
+  await renderNetwork();
   try {
     const result = await window.board.read<{ sessions: Session[] }>(
       "sessions",
@@ -350,6 +391,12 @@ async function refresh() {
 function switchView(view: string) {
   el("board-panel").hidden = view !== "activity";
   el("sessions-panel").hidden = view !== "sessions";
+  el("network-panel").hidden = view !== "network";
+  el("network-tab").classList.toggle("active", view === "network");
+  el("network-tab").setAttribute(
+    "aria-current",
+    view === "network" ? "page" : "false",
+  );
   el("activity-tab").classList.toggle("active", view === "activity");
   el("sessions-tab").classList.toggle("active", view === "sessions");
   el("activity-tab").setAttribute(
@@ -361,15 +408,28 @@ function switchView(view: string) {
     view === "sessions" ? "page" : "false",
   );
   el("page-title").replaceChildren(
-    node("span", view === "activity" ? "Message board." : "Sessions."),
+    node(
+      "span",
+      view === "activity"
+        ? "Message board."
+        : view === "sessions"
+          ? "Sessions."
+          : "Network boards.",
+    ),
   );
   el("page-description").textContent =
     view === "activity"
       ? "One place for the conversations between your coding sessions."
-      : "Registered identities, connection evidence, and delivery capabilities.";
+      : view === "sessions"
+        ? "Registered identities, connection evidence, and delivery capabilities."
+        : "Find ChatterBox services on your local network.";
 }
 el("activity-tab").onclick = () => switchView("activity");
 el("sessions-tab").onclick = () => switchView("sessions");
+el("network-tab").onclick = () => {
+  switchView("network");
+  void renderNetwork();
+};
 el("refresh").onclick = () => {
   void refresh();
 };

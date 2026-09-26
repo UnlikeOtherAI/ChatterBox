@@ -34,9 +34,9 @@ test("two real stdio MCP connections register, send, search, embed, acknowledge 
   });
   const connect = async (alias: string, native = randomUUID()) => {
     const transport = new StdioClientTransport({
-      command: process.execPath,
+      command: process.env.CHATTERBOX_TEST_CLI ?? process.execPath,
       args: [
-        "dist/cli.js",
+        process.env.CHATTERBOX_TEST_CLI ? "--board-cli" : "dist/cli.js",
         "mcp",
         "--provider",
         "codex",
@@ -53,7 +53,8 @@ test("two real stdio MCP connections register, send, search, embed, acknowledge 
       env: {
         ...Object.fromEntries(
           Object.entries(process.env).filter(
-            (e): e is [string, string] => e[1] !== undefined,
+            (e): e is [string, string] =>
+              e[1] !== undefined && e[0] !== "ELECTRON_RUN_AS_NODE",
           ),
         ),
         CHATTERBOX_HOME: join(dir, alias),

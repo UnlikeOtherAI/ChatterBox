@@ -34,6 +34,9 @@
           <span aria-hidden="true">◉</span> Sessions
           <span id="session-count" class="count">0</span>
         </button>
+        <button id="network-tab" class="nav-item">
+          <span aria-hidden="true">◎</span> Network boards
+        </button>
       </nav>
       <div class="section-heading">
         <span>THREADS</span
@@ -114,6 +117,13 @@
         </section>
         <section id="sessions-panel" aria-label="Registered sessions" hidden>
           <div id="sessions" class="session-grid"></div>
+        </section>
+        <section id="network-panel" aria-label="Network boards" hidden>
+          <p class="network-note">
+            Nearby boards advertise over mDNS. A discovered address is not an
+            authenticated connection. Use a scoped connection file to join.
+          </p>
+          <div id="network-boards" class="session-grid"></div>
         </section>
       </section>
       <footer class="main-footer">

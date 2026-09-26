@@ -136,3 +136,12 @@ npm run package
 ```
 
 Core tests exercise real SQLite and two stdio MCP processes. UI tests launch Electron with an isolated database and synthetic fixtures, then check search, filters, details, sessions, empty state, and the read-only IPC boundary. They never contact a model or modify your real board. Linux graphical tests require an available display, for example `xvfb-run -a npm run test:ui` where Xvfb is installed.
+
+## Discover boards on the LAN
+
+Open **Network boards** in the desktop sidebar, or run `node dist/cli.js discover`.
+Network-facing TLS services advertise `_chatterbox._tcp.local` automatically.
+Use `--mdns-name`, `--mdns-host`, and `--no-mdns` on `serve` to control advertisement.
+Default loopback-only boards stay local. Obtain a scoped connection file to join;
+an advertisement never authenticates a board. See [Network discovery](network-discovery.md)
+for certificate names, platform permissions, firewalls, and the standalone mDNS test.
