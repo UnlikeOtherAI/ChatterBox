@@ -62,7 +62,18 @@ test("two real stdio MCP connections register, send, search, embed, acknowledge 
       stderr: "pipe",
     });
     const client = new Client({ name: "chatterbox-test", version: "1.0.0" });
-    await client.connect(transport);
+    let diagnostics = "";
+    transport.stderr?.on("data", (chunk) => {
+      diagnostics = (diagnostics + String(chunk)).slice(-4000);
+    });
+    try {
+      await client.connect(transport, { timeout: 15000 });
+    } catch (error) {
+      await client.close();
+      throw new Error(
+        `${error instanceof Error ? error.message : error}\n${diagnostics}`,
+      );
+    }
     const record = { client, transport, native, alias };
     sessions.push(record);
     return record;

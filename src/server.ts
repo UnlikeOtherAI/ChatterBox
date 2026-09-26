@@ -194,6 +194,7 @@ export async function serve(
       announcement = advertise(port, {
         name: options.mdnsName,
         host: options.mdnsHost,
+        disableIPv6: !host.includes(":"),
       });
     } catch {
       console.error("mDNS could not start; use the configured board URL.");

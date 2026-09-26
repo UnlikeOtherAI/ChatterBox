@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { describeService } from "../discovery.js";
+import { hostname } from "node:os";
+import { advertise, describeService } from "../discovery.js";
 
 test("mDNS hints require the expected protocol, TLS, valid host and port, and never confer trust", () => {
   const service = {
@@ -37,5 +38,15 @@ test("mDNS hints require the expected protocol, TLS, valid host and port, and ne
   assert.equal(
     describeService({ ...service, txt: { protocol: "1", tls: "0" } }),
     null,
+  );
+});
+
+test("advertising never claims the operating system hostname", () => {
+  assert.throws(
+    () =>
+      advertise(4318, {
+        host: `${hostname().replace(/\.local\.?$/, "")}.local`,
+      }),
+    /dedicated ChatterBox hostname/,
   );
 });

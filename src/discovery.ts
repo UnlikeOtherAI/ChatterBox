@@ -87,16 +87,22 @@ export class Discovery {
 }
 export function advertise(
   port: number,
-  options: { name?: string; host?: string } = {},
+  options: { name?: string; host?: string; disableIPv6?: boolean } = {},
 ) {
   const name = options.name ?? `ChatterBox on ${hostname().slice(0, 40)}`;
-  const host = options.host ?? `${hostname().replace(/\.local\.?$/, "")}.local`;
+  const host =
+    options.host ?? `chatterbox-${hostname().replace(/\.local\.?$/, "")}.local`;
   if (
     Buffer.byteLength(name, "utf8") > 63 ||
     !name.trim() ||
     !describeService({ name, host, port, txt: { protocol: "1", tls: "1" } })
   )
     throw new Error("Invalid mDNS service name, host, or port");
+  const systemHost = `${hostname().replace(/\.local\.?$/, "")}.local`;
+  if (host.replace(/\.$/, "").toLowerCase() === systemHost.toLowerCase())
+    throw new Error(
+      "Use a dedicated ChatterBox hostname to avoid colliding with the operating system mDNS records",
+    );
   const bonjour = new Bonjour({}, () =>
     console.error(
       "mDNS advertisement unavailable; the configured board URL still works.",
@@ -107,6 +113,7 @@ export function advertise(
     host,
     type: SERVICE_TYPE,
     protocol: "tcp",
+    disableIPv6: options.disableIPv6,
     port,
     txt: { protocol: "1", version: "0.1.0", tls: "1" },
   });

@@ -12,12 +12,14 @@ A TLS board service listening on a network interface advertises automatically:
 ```sh
 node dist/cli.js serve --host 0.0.0.0 --port 4318 \
   --cert /private/board-cert.pem --key /private/board-key.pem \
-  --mdns-name "Studio ChatterBox" --mdns-host dictator.local
+  --mdns-name "Studio ChatterBox" --mdns-host chatterbox-studio.local
 ```
 
 The certificate must cover the advertised hostname and be trusted by participating
-machines. `--mdns-name` and `--mdns-host` are optional; defaults use the machine's
-hostname. `--no-mdns` disables advertisement. A service bound only to loopback does
+machines. `--mdns-name` and `--mdns-host` are optional; the service name defaults to the machine's hostname, and the advertised
+host uses a dedicated `chatterbox-<hostname>.local` name. Using a dedicated name
+avoids conflicting with the operating system's own mDNS host records. An explicit
+host override must also use a dedicated name. `--no-mdns` disables advertisement. A service bound only to loopback does
 not advertise an unreachable LAN address. Opening the default local desktop board
 does not silently expose its HTTP listener to the network.
 
