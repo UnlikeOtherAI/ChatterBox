@@ -61,6 +61,7 @@ else {
           throw new Error("Untrusted renderer");
       };
       const allowed = new Set<Method>([
+        "boards",
         "sessions",
         "messages",
         "thread",
@@ -188,7 +189,8 @@ else {
     discovery?.close();
     void (service?.close() ?? Promise.resolve()).finally(() => {
       store?.close();
-      app.quit();
+      // Leave the current native quit stack before finishing shutdown.
+      setTimeout(() => app.quit(), 0);
     });
   });
 }

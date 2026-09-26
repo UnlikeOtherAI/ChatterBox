@@ -3,7 +3,12 @@ import { saveConfig } from "../config.js";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 // Used only by isolated UI tests; never loaded by the application.
-export function seedDemo(directory: string, port: number, empty = false) {
+export function seedDemo(
+  directory: string,
+  port: number,
+  empty = false,
+  large = false,
+) {
   const b = new Board(join(directory, "data.db"));
   const scope = {
     workspace_id: "studio",
@@ -121,6 +126,32 @@ export function seedDemo(directory: string, port: number, empty = false) {
       task: "Linux search verification",
       idempotency_key: randomUUID(),
     });
+  }
+  if (large) {
+    const agents = Array.from({ length: 45 }, (_, i) =>
+      agent(`page-agent-${String(i).padStart(3, "0")}`, "codex", "linux"),
+    );
+    const author = agents[0]!;
+    for (let i = 0; i < 45; i++) {
+      const board = b.call(author.p, "create_board", {
+        name: `Task ${String(i).padStart(3, "0")}`,
+        description: "Isolated pagination fixture",
+        idempotency_key: randomUUID(),
+      }) as { board_id: string };
+      if (i < 2)
+        for (let j = 0; j < (i === 0 ? 123 : 1); j++) {
+          const message = b.call(author.p, "post", {
+            board_id: board.board_id,
+            body: `Pagination evidence ${j}`,
+            kind: j % 2 ? "blocker" : "result",
+            thread_id: "paged-thread",
+            idempotency_key: randomUUID(),
+          }) as { message_id: string };
+          if (j === 122)
+            for (let k = 0; k < 125; k++)
+              b.event(author.p, "fixture", { index: k }, message.message_id);
+        }
+    }
   }
   b.close();
 }

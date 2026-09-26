@@ -1,6 +1,12 @@
 import type { DiscoveredBoard } from "../discovery.js";
-import type { Message, Session, Method } from "../types.js";
-type Page = { messages: Message[]; cursor: string | null; mode?: string };
+import type { Message, Session, Method, MessageBoard } from "../types.js";
+import { Pagination } from "./pagination.js";
+type Page = {
+  messages: Message[];
+  cursor: string | null;
+  previous_cursor: string | null;
+  mode?: string;
+};
 declare global {
   interface Window {
     board: {
@@ -29,10 +35,10 @@ function node<K extends keyof HTMLElementTagNameMap>(
 }
 let sessions: Session[] = [];
 let messages: Message[] = [];
-let history: Message[] = [];
-let selectedThread = "";
-let currentCursor: string | null = null;
-let request = 0;
+let activeBoard: MessageBoard | null = null;
+let currentView = "boards";
+
+let boardSearchTimer: ReturnType<typeof setTimeout>;
 let searchTimer: ReturnType<typeof setTimeout>;
 const query = () => el<HTMLInputElement>("search").value.trim();
 const filterKind = () => el<HTMLSelectElement>("kind").value;
@@ -46,87 +52,24 @@ const relative = (time: number) => {
         ? `${Math.floor(mins / 60)}h ago`
         : new Date(time).toLocaleDateString();
 };
-const labels: Record<string, string> = {
-  accepted_by_board: "Stored · awaiting delivery",
-  stored_on_recipient: "Stored on recipient",
-  delivery_attempted: "Delivery attempted",
-  queued_with_provider: "Queued with provider",
-  notification_sent: "Notification sent · awaiting receipt",
-  retry_wait: "Retry scheduled",
-  acknowledged: "Acknowledged",
-};
 function empty(title: string, text: string, code?: string) {
   const box = node("div", "", "empty");
-  box.append(
-    node("div", "↗", "empty-symbol"),
-    node("h2", title),
-    node("p", text),
-  );
+  box.append(node("h2", title), node("p", text));
   if (code) box.append(node("code", code));
   return box;
 }
 function setConnection(online: boolean) {
-  el("connection-state").textContent = online
-    ? "Board connected"
-    : "Board unavailable";
+  el("connection-state").textContent = online ? "Connected" : "Disconnected";
   el("connection-dot").classList.toggle("online", online);
 }
 function showError(error: unknown) {
   el("error").hidden = false;
   el("error").textContent =
-    `${error instanceof Error ? error.message : "Could not read the board"}. Your stored messages are preserved. Use Refresh to try again.`;
+    `${error instanceof Error ? error.message : "Could not load messages"}. Use Refresh to try again.`;
   setConnection(false);
 }
 function kv(list: HTMLElement, key: string, value: string) {
   list.append(node("dt", key), node("dd", value));
-}
-function renderStats() {
-  const stats = el("stats");
-  stats.replaceChildren();
-  const connected = sessions.filter((s) => s.connection === "online").length;
-  const pending = history
-    .flatMap((m) => m.deliveries ?? [])
-    .filter((d) => !d.acknowledgement).length;
-  for (const [label, value, note] of [
-    ["Registered sessions", String(sessions.length), `${connected} connected`],
-    ["Messages loaded", String(history.length), "durable history"],
-    ["Awaiting acknowledgement", String(pending), "in loaded messages"],
-  ]) {
-    const s = node("div", "", "stat");
-    const metric = node("div");
-    metric.append(
-      node("span", value, "stat-number"),
-      node("span", note, "stat-note"),
-    );
-    s.append(node("div", label, "stat-label"), metric);
-    stats.append(s);
-  }
-  el("session-count").textContent = String(sessions.length);
-  el("nav-count").textContent = String(history.length);
-}
-function renderThreads() {
-  const threads = [
-    ...new Set([...history, ...messages].map((m) => m.thread_id)),
-  ];
-  el("threads").replaceChildren();
-  for (const thread of threads) {
-    const b = node(
-      "button",
-      thread,
-      `thread-button${selectedThread === thread ? " active" : ""}`,
-    );
-    b.title = thread;
-    b.onclick = () => {
-      selectedThread = thread;
-      switchView("activity");
-      void loadMessages();
-    };
-    el("threads").append(b);
-  }
-  if (!threads.length)
-    el("threads").append(
-      node("p", "Threads appear when agents talk.", "muted"),
-    );
 }
 function renderSessions() {
   const root = el("sessions");
@@ -171,176 +114,238 @@ function renderSessions() {
 async function details(m: Message) {
   const root = el("detail-content");
   root.replaceChildren(
-    node("h2", m.thread_id),
+    node("h2", m.from_alias ?? "Agent"),
+    node("p", new Date(m.created_at).toLocaleString(), "message-date"),
     node("p", m.body, "message-body"),
   );
+  const more = node("details", "", "message-metadata");
+  more.append(node("summary", "Details"));
   const list = node("dl");
+  kv(list, "Board", activeBoard?.name ?? m.board_id);
+  kv(list, "Thread", m.thread_id);
   kv(list, "Message ID", m.message_id);
-  kv(list, "From", `${m.from_alias} · ${m.from_session_id}`);
-  kv(list, "Created", new Date(m.created_at).toLocaleString());
   for (const d of m.deliveries ?? [])
     kv(
       list,
       `To ${d.to_alias}`,
-      `${labels[d.state] ?? d.state}${d.acknowledgement ? ` · ${d.acknowledgement}` : ""}\n${d.attempts} transport attempts${d.detail ? `\n${d.detail}` : ""}`,
+      d.acknowledgement ?? d.state.replaceAll("_", " "),
     );
-  kv(list, "Agent-supplied embeddings", String(m.embedding_count ?? 0));
-  root.append(list, node("h3", "Audit trail"));
+  if (m.embedding_count) kv(list, "Embeddings", String(m.embedding_count));
+  more.append(list, node("h3", "History"));
+  root.append(more);
   el<HTMLDialogElement>("detail").showModal();
-  try {
-    const audit = await window.board.read<{
-      events: { type: string; created_at: number; detail: string }[];
-      cursor: string | null;
-    }>("audit", { message_id: m.message_id, limit: 100 });
-    if (!el<HTMLDialogElement>("detail").open) return;
-    for (const event of audit.events) {
-      const row = node("div", event.type.replaceAll("_", " "), "audit-event");
-      row.append(
-        node("small", new Date(event.created_at).toLocaleString()),
-        node("small", event.detail),
-      );
-      root.append(row);
-    }
-    if (audit.cursor)
-      root.append(
-        node(
-          "p",
-          "Showing the first 100 audit events. The API supports paging for the full trail.",
-          "muted",
-        ),
-      );
-  } catch (error) {
-    root.append(
-      node("p", error instanceof Error ? error.message : "Audit unavailable"),
-    );
-  }
+  const events = node("div");
+  const controls = node("nav");
+  more.append(events, controls);
+  const pager = new Pagination<{
+    type: string;
+    created_at: number;
+    detail: string;
+  }>(
+    controls,
+    "Audit",
+    50,
+    async (cursor) => {
+      const result = await window.board.read<{
+        events: { type: string; created_at: number; detail: string }[];
+        cursor: string | null;
+        previous_cursor: string | null;
+      }>("audit", {
+        message_id: m.message_id,
+        limit: 50,
+        ...(cursor ? { cursor } : {}),
+      });
+      return {
+        items: result.events,
+        cursor: result.cursor,
+        previous_cursor: result.previous_cursor,
+      };
+    },
+    (items) => {
+      events.replaceChildren();
+      for (const event of items) {
+        const row = node("div", event.type.replaceAll("_", " "), "audit-event");
+        row.append(
+          node("small", new Date(event.created_at).toLocaleString()),
+          node("small", event.detail),
+        );
+        events.append(row);
+      }
+    },
+    (error) =>
+      events.replaceChildren(
+        node("p", error instanceof Error ? error.message : "Audit unavailable"),
+      ),
+  );
+  await pager.load();
 }
 function renderMessages() {
   const root = el("messages");
   root.replaceChildren();
-  const shown = messages.filter(
-    (m) => !filterKind() || m.kind === filterKind(),
-  );
-  el("feed-label").textContent = query()
-    ? "SEARCH RESULTS"
-    : selectedThread
-      ? `THREAD / ${selectedThread}`
-      : "PROJECT ACTIVITY";
-  el("result-count").textContent =
-    `${shown.length} message${shown.length === 1 ? "" : "s"}${currentCursor ? " · more available" : ""}`;
-  for (const m of shown) {
-    const article = node("article", "", "message");
-    article.dataset.messageId = m.message_id;
-    const sender = sessions.find(
-      (s) => s.agent_session_id === m.from_session_id,
-    );
-    const avatar = node(
-      "div",
-      (m.from_alias ?? "AG").slice(0, 2).toUpperCase(),
-      `avatar ${sender?.provider === "codex" ? "codex" : ""}`,
-    );
-    const content = node("div", "", "message-main");
-    const heading = node("div", "", "message-heading");
-    heading.append(
-      node("strong", m.from_alias ?? "Agent"),
-      node("span", "→", "arrow"),
-      node(
-        "span",
-        (m.deliveries ?? []).map((d) => d.to_alias).join(", "),
-        "recipient",
-      ),
-      node("span", m.kind, `kind ${m.kind}`),
-    );
+  for (const m of messages) {
+    const row = node("button", "", "message");
+    row.type = "button";
+    row.dataset.messageId = m.message_id;
+    row.setAttribute("aria-label", `Message from ${m.from_alias ?? "Agent"}`);
+    const body = node("span", "", "message-main");
+    const heading = node("span", "", "message-heading");
     const time = node("time", relative(m.created_at), "message-time");
     time.dateTime = new Date(m.created_at).toISOString();
     time.title = new Date(m.created_at).toLocaleString();
-    heading.append(time);
-    const footer = node("div", "", "message-footer");
-    const thread = node("button", `# ${m.thread_id}`, "thread-link");
-    thread.onclick = () => {
-      selectedThread = m.thread_id;
-      void loadMessages();
-    };
-    footer.append(thread);
-    const deliveries = m.deliveries ?? [];
-    const acknowledged = deliveries.filter((d) => d.acknowledgement).length;
-    const delivery =
-      deliveries.length === 1
-        ? (deliveries[0]!.acknowledgement ??
-          labels[deliveries[0]!.state] ??
-          deliveries[0]!.state)
-        : `${acknowledged}/${deliveries.length} acknowledged`;
-    footer.append(
-      node(
-        "span",
-        `${acknowledged ? "✓" : "◷"} ${delivery}`,
-        `delivery-label${acknowledged ? "" : " pending"}`,
-      ),
-    );
-    if (m.commit_sha)
-      footer.append(node("span", m.commit_sha.slice(0, 8), "metadata"));
-    if (m.embedding_count)
-      footer.append(node("span", "◇ Embedding", "metadata"));
-    const more = node("button", "View details ↗", "details-button");
-    more.onclick = () => {
+    heading.append(node("strong", m.from_alias ?? "Agent"), time);
+    body.append(heading, node("span", m.body, "message-preview"));
+    row.append(body);
+    row.onclick = () => {
       void details(m);
     };
-    footer.append(more);
-    content.append(heading, node("p", m.body, "message-body"), footer);
-    article.append(avatar, content);
-    root.append(article);
+    root.append(row);
   }
-  if (!shown.length)
+  if (!messages.length)
     root.append(
-      query() || selectedThread || filterKind()
-        ? empty(
-            "No matching messages",
-            "Try another search, message type, or thread. Search matches words and word prefixes.",
-          )
-        : empty(
-            "A quiet board. Ready for company.",
-            "Connect your existing Codex or Claude Code sessions. Their coordination messages will appear here as they work.",
-            "chatterbox mcp --provider codex --alias mac-dev\n  --native-session YOUR_SESSION_ID --transport codex-queue",
-          ),
+      empty(
+        query() || filterKind() ? "No matching messages" : "No messages yet",
+        query() || filterKind()
+          ? "Try a different search or type."
+          : "Messages from connected agents will appear here.",
+      ),
     );
-  el("load-more").hidden = !currentCursor;
-  renderThreads();
 }
-async function loadMessages(more = false) {
-  const generation = ++request;
-  const args = {
-    limit: 50,
-    ...(filterKind() ? { kind: filterKind() } : {}),
-    ...(selectedThread ? { thread_id: selectedThread } : {}),
-    ...(more && currentCursor ? { cursor: currentCursor } : {}),
-  };
-  try {
-    const page = query()
+const messagesPager = new Pagination<Message>(
+  el("messages-pagination"),
+  "Messages",
+  50,
+  async (cursor) => {
+    if (!activeBoard) return { items: [], cursor: null, previous_cursor: null };
+    const args = {
+      limit: 50,
+      board_id: activeBoard.board_id,
+      ...(filterKind() ? { kind: filterKind() } : {}),
+      ...(cursor ? { cursor } : {}),
+    };
+    const result = query()
       ? await window.board.read<Page>("search", {
           ...args,
           query: query(),
-          ...(filterKind() ? { kind: filterKind() } : {}),
+          sort: "newest",
         })
       : await window.board.read<Page>("messages", args);
-    if (generation !== request) return;
-    messages = more ? [...messages, ...page.messages] : page.messages;
-    currentCursor = page.cursor;
-    // Chronological API pages are retained in order; search pages retain relevance order.
-    if (!query() && !selectedThread) history = messages;
+    return {
+      items: result.messages,
+      cursor: result.cursor,
+      previous_cursor: result.previous_cursor,
+    };
+  },
+  (items) => {
+    messages = items;
     el("error").hidden = true;
     setConnection(true);
     renderMessages();
-    renderStats();
-  } catch (error) {
-    if (generation === request) showError(error);
-  }
+  },
+  showError,
+);
+function resetMessages() {
+  messagesPager.reset();
+  messages = [];
+  renderMessages();
+  void messagesPager.load();
 }
-async function renderNetwork() {
-  try {
-    const discovery = await window.board.discover();
+const sessionsPager = new Pagination<Session>(
+  el("sessions-pagination"),
+  "Sessions",
+  20,
+  async (cursor) => {
+    const result = await window.board.read<{
+      sessions: Session[];
+      cursor: string | null;
+      previous_cursor: string | null;
+    }>("sessions", { limit: 20, ...(cursor ? { cursor } : {}) });
+    return {
+      items: result.sessions,
+      cursor: result.cursor,
+      previous_cursor: result.previous_cursor,
+    };
+  },
+  (items) => {
+    sessions = items;
+    renderSessions();
+  },
+  showError,
+);
+const boardsPager = new Pagination<MessageBoard>(
+  el("boards-pagination"),
+  "Boards",
+  20,
+  async (cursor) => {
+    const result = await window.board.read<{
+      boards: MessageBoard[];
+      cursor: string | null;
+      previous_cursor: string | null;
+    }>("boards", {
+      limit: 20,
+      query: el<HTMLInputElement>("board-search").value.trim(),
+      ...(cursor ? { cursor } : {}),
+    });
+    return {
+      items: result.boards,
+      cursor: result.cursor,
+      previous_cursor: result.previous_cursor,
+    };
+  },
+  (items) => {
+    el("boards").replaceChildren();
+    for (const board of items) {
+      const row = node("button", "", "board-row");
+      row.type = "button";
+      row.title = board.board_id;
+      row.setAttribute("aria-label", `Open ${board.name}`);
+      const content = node("span", "", "board-row-content");
+      content.append(node("strong", board.name));
+      if (board.description)
+        content.append(node("span", board.description, "board-description"));
+      row.append(content);
+      if (board.created_at) {
+        const time = node("time", relative(board.created_at), "board-time");
+        time.dateTime = new Date(board.created_at).toISOString();
+        time.title = new Date(board.created_at).toLocaleString();
+        row.append(time);
+      }
+      row.onclick = () => {
+        activeBoard = board;
+        el<HTMLInputElement>("search").value = "";
+        el<HTMLSelectElement>("kind").value = "";
+        switchView("activity");
+        resetMessages();
+      };
+      el("boards").append(row);
+    }
+    if (!items.length)
+      el("boards").append(
+        empty("No matching boards", "Try a different search."),
+      );
+    el("error").hidden = true;
+    setConnection(true);
+  },
+  showError,
+);
+const networkPager = new Pagination<DiscoveredBoard>(
+  el("network-pagination"),
+  "Network services",
+  20,
+  async (cursor) => {
+    const result = await window.board.discover();
+    const boards = result.boards.sort((a, b) => a.url.localeCompare(b.url));
+    const start = Number(cursor ?? 0);
+    if (!boards.length && result.error) throw new Error(result.error);
+    return {
+      items: boards.slice(start, start + 20),
+      cursor: boards.length > start + 20 ? String(start + 20) : null,
+      previous_cursor: start > 0 ? String(Math.max(0, start - 20)) : null,
+    };
+  },
+  (items) => {
     const root = el("network-boards");
     root.replaceChildren();
-    for (const board of discovery.boards) {
+    for (const board of items) {
       const card = node("article", "", "session-card");
       card.append(node("h2", board.name), node("p", board.url));
       const list = node("dl");
@@ -354,15 +359,15 @@ async function renderNetwork() {
       card.append(list);
       root.append(card);
     }
-    if (!discovery.boards.length)
+    if (!items.length)
       root.append(
         empty(
-          "No nearby boards found",
-          discovery.error ??
-            "Only reachable TLS board services advertise. Make sure the service is listening on the LAN and UDP port 5353 is allowed. Local-only boards stay private.",
+          "No nearby services found",
+          "Only reachable TLS services advertise. Local-only services stay private.",
         ),
       );
-  } catch (error) {
+  },
+  (error) =>
     el("network-boards").replaceChildren(
       empty(
         "Discovery unavailable",
@@ -370,100 +375,81 @@ async function renderNetwork() {
           ? error.message
           : "Check local network permissions.",
       ),
-    );
-  }
-}
+    ),
+);
 async function refresh() {
-  await renderNetwork();
-  try {
-    const result = await window.board.read<{ sessions: Session[] }>(
-      "sessions",
-      { limit: 100 },
-    );
-    sessions = result.sessions;
-    renderSessions();
-    renderStats();
-    await loadMessages();
-  } catch (error) {
-    showError(error);
-  }
+  if (currentView === "boards") await boardsPager.load();
+  else if (currentView === "sessions") await sessionsPager.load();
+  else if (currentView === "network") await networkPager.load();
+  else await messagesPager.load();
 }
 function switchView(view: string) {
+  if (view === "activity" && !activeBoard) view = "boards";
+  currentView = view;
+  el("boards-panel").hidden = view !== "boards";
   el("board-panel").hidden = view !== "activity";
   el("sessions-panel").hidden = view !== "sessions";
   el("network-panel").hidden = view !== "network";
-  el("network-tab").classList.toggle("active", view === "network");
-  el("network-tab").setAttribute(
-    "aria-current",
-    view === "network" ? "page" : "false",
-  );
-  el("activity-tab").classList.toggle("active", view === "activity");
-  el("sessions-tab").classList.toggle("active", view === "sessions");
-  el("activity-tab").setAttribute(
-    "aria-current",
-    view === "activity" ? "page" : "false",
-  );
-  el("sessions-tab").setAttribute(
-    "aria-current",
-    view === "sessions" ? "page" : "false",
-  );
-  el("page-title").replaceChildren(
-    node(
-      "span",
-      view === "activity"
-        ? "Message board."
+  el("back-boards").hidden = view !== "activity";
+  for (const [id, selected] of [
+    ["activity-tab", view === "boards" || view === "activity"],
+    ["sessions-tab", view === "sessions"],
+    ["network-tab", view === "network"],
+  ] as const) {
+    el(id).classList.toggle("active", selected);
+    el(id).setAttribute("aria-current", selected ? "page" : "false");
+  }
+  el("page-title").textContent =
+    view === "boards"
+      ? "Message boards"
+      : view === "activity"
+        ? activeBoard!.name
         : view === "sessions"
-          ? "Sessions."
-          : "Network boards.",
-    ),
-  );
+          ? "Sessions"
+          : "Network";
   el("page-description").textContent =
-    view === "activity"
-      ? "One place for the conversations between your coding sessions."
-      : view === "sessions"
-        ? "Registered identities, connection evidence, and delivery capabilities."
-        : "Find ChatterBox services on your local network.";
+    view === "activity" ? activeBoard!.description : "";
+  el("page-description").hidden =
+    view !== "activity" || !activeBoard?.description;
+  document.querySelector(".content")?.scrollTo(0, 0);
 }
-el("activity-tab").onclick = () => switchView("activity");
-el("sessions-tab").onclick = () => switchView("sessions");
+function showBoards() {
+  switchView("boards");
+  void boardsPager.load();
+}
+el("activity-tab").onclick = showBoards;
+el("back-boards").onclick = showBoards;
+el("sessions-tab").onclick = () => {
+  switchView("sessions");
+  void sessionsPager.load();
+};
 el("network-tab").onclick = () => {
   switchView("network");
-  void renderNetwork();
+  void networkPager.load();
 };
 el("refresh").onclick = () => {
   void refresh();
 };
-el("all-threads").onclick = () => {
-  selectedThread = "";
-  switchView("activity");
-  void loadMessages();
-};
+el("board-search").addEventListener("input", () => {
+  clearTimeout(boardSearchTimer);
+  boardSearchTimer = setTimeout(() => {
+    boardsPager.reset();
+    void boardsPager.load();
+  }, 180);
+});
 el("search").addEventListener("input", () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => {
-    void loadMessages();
+    resetMessages();
   }, 180);
 });
 el("kind").addEventListener("change", () => {
-  void loadMessages();
+  resetMessages();
 });
-el("load-more").onclick = () => {
-  void loadMessages(true);
-};
 el("close-detail").onclick = () => el<HTMLDialogElement>("detail").close();
-document.addEventListener("keydown", (event) => {
-  if (event.key === "/" && !(event.target instanceof HTMLInputElement)) {
-    event.preventDefault();
-    switchView("activity");
-    el("search").focus();
-  }
-});
 async function init() {
   try {
-    const ctx = await window.board.context();
-    el("project").textContent = ctx.project;
-    el("workspace").textContent = ctx.workspace;
-    el("breadcrumb-project").textContent = ctx.project;
+    switchView("boards");
     await refresh();
     let updateTimer: ReturnType<typeof setTimeout>;
     window.board.onChanged(() => {

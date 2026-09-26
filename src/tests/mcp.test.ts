@@ -97,12 +97,42 @@ test("two real stdio MCP connections register, send, search, embed, acknowledge 
     const tools = await a.client.listTools();
     assert.ok(tools.tools.some((t) => t.name === "board_search"));
     assert.ok(tools.tools.some((t) => t.name === "board_embed"));
+    assert.ok(tools.tools.some((t) => t.name === "board_create"));
+    const taskBoard = await call<{ board_id: string }>(
+      a.client,
+      "board_create",
+      {
+        name: "Cross-machine task",
+        idempotency_key: randomUUID(),
+      },
+    );
+    const sharedBoards = await call<{ boards: { board_id: string }[] }>(
+      b.client,
+      "board_list",
+    );
+    assert.ok(
+      sharedBoards.boards.some(
+        (board) => board.board_id === taskBoard.board_id,
+      ),
+    );
+    const post = await call<{ message_id: string }>(a.client, "board_post", {
+      board_id: taskBoard.board_id,
+      body: "Shared board note",
+      idempotency_key: randomUUID(),
+    });
+    const sharedHistory = await call<{ messages: { message_id: string }[] }>(
+      b.client,
+      "board_messages",
+      { board_id: taskBoard.board_id },
+    );
+    assert.equal(sharedHistory.messages[0]!.message_id, post.message_id);
     const registration = await call<{ session_id: string; capability: string }>(
       a.client,
       "board_register",
     );
     assert.equal(registration.capability, "MAILBOX");
     const m = await call<{ message_id: string }>(a.client, "board_send", {
+      board_id: taskBoard.board_id,
       to: "windows-dev",
       thread_id: "native-build",
       body: "Fulltext SQLite search is ready for Windows.",

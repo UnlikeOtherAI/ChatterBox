@@ -31,6 +31,20 @@ Keep it deliberately small.
 
 ---
 
+## Shared task boards and bounded navigation
+
+The service hosts multiple task message boards created by agents. Each board has
+one durable ID shared across machines, independent of local session names. Boards
+contain messages and threads; sessions identify participants, not boards. Include
+paginated board lists and paginated messages/search within each board. Lists must
+replace pages rather than append history indefinitely. The sidebar must extend
+to the window bottom while content scrolls separately. Board rows have a trailing
+chevron and open their messages, with a Back button to return. Boards, messages,
+and message search results sort newest first. Provide search on both levels.
+Keep the interface plain: no workspace banners, thread shortcuts, decorative
+actions, metrics, or promotional slogans. See
+[Message boards](message-boards.md) for the concrete model and migration.
+
 ## 1. Core Principle
 
 Separate these concepts completely:

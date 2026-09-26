@@ -37,6 +37,7 @@ const page = {
 const key = { idempotency_key: id };
 const send = {
   ...key,
+  board_id: id.optional(),
   body: z.string().trim().min(1).max(16000),
   kind: kind.default("message"),
   thread_id: name,
@@ -48,6 +49,19 @@ const send = {
     .optional(),
 };
 export const schemas = {
+  boards: z
+    .object({ ...page, query: z.string().trim().max(512).default("") })
+    .strict(),
+  create_board: z
+    .object({
+      ...key,
+      name,
+      description: z.string().trim().max(1000).default(""),
+    })
+    .strict(),
+  post: z
+    .object({ ...send, board_id: id, thread_id: name.default("main") })
+    .strict(),
   register: z
     .object({
       native_session_id: id,
@@ -86,13 +100,16 @@ export const schemas = {
   messages: z
     .object({
       ...page,
+      board_id: id.optional(),
       thread_id: name.optional(),
       pending: z.boolean().default(false),
       kind: kind.optional(),
       session_id: id.optional(),
     })
     .strict(),
-  thread: z.object({ ...page, thread_id: name }).strict(),
+  thread: z
+    .object({ ...page, board_id: id.optional(), thread_id: name })
+    .strict(),
   ack: z
     .object({
       ...key,
@@ -118,11 +135,13 @@ export const schemas = {
   search: z
     .object({
       ...page,
+      board_id: id.optional(),
       query: z.string().trim().max(512).default(""),
       thread_id: name.optional(),
       kind: kind.optional(),
       model: name.optional(),
       vector: vector.optional(),
+      sort: z.enum(["relevance", "newest"]).default("relevance"),
     })
     .strict()
     .refine((v) => !!v.query || !!v.vector, "Provide search text or a vector")
@@ -187,6 +206,7 @@ export type Message = {
   message_id: string;
   workspace_id: string;
   project_id: string;
+  board_id: string;
   thread_id: string;
   from_session_id: string;
   kind: string;
@@ -197,9 +217,21 @@ export type Message = {
   created_at: number;
   body_hash: string;
   from_alias?: string;
+  from_provider?: string;
   deliveries?: Delivery[];
   embedding_count?: number;
   score?: number;
+};
+export type MessageBoard = {
+  seq: number;
+  board_id: string;
+  workspace_id: string;
+  project_id: string;
+  name: string;
+  description: string;
+  created_by: string | null;
+  created_at: number;
+  is_default: number;
 };
 export type Delivery = {
   message_id: string;

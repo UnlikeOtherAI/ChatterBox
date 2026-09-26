@@ -15,6 +15,7 @@ import {
   type Principal,
   type Session,
   type Message,
+  type MessageBoard,
   type Delivery,
   type Method,
 } from "./types.js";
@@ -23,6 +24,7 @@ const digest = (text: string) =>
   createHash("sha256").update(text).digest("hex");
 const uid = (prefix: string) => `${prefix}_${randomUUID()}`;
 const reading = new Set<Method>([
+  "boards",
   "sessions",
   "messages",
   "thread",
@@ -55,7 +57,7 @@ export class Board {
     const version = this.one<{ user_version: number }>(
       "PRAGMA user_version",
     )!.user_version;
-    if (version > 1)
+    if (version > 2)
       fail(500, "This database needs a newer ChatterBox version");
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -74,8 +76,29 @@ export class Board {
       CREATE INDEX IF NOT EXISTS events_scope ON events(workspace_id,project_id,seq);
       CREATE TABLE IF NOT EXISTS embeddings (message_id TEXT NOT NULL REFERENCES messages(message_id), model TEXT NOT NULL, dimensions INTEGER NOT NULL, vector TEXT NOT NULL, body_hash TEXT NOT NULL, contributor_id TEXT NOT NULL, created_at INTEGER NOT NULL, PRIMARY KEY(message_id,model));
       CREATE TABLE IF NOT EXISTS spool (board_url TEXT NOT NULL, session_id TEXT NOT NULL, message_id TEXT NOT NULL, payload TEXT NOT NULL, state TEXT NOT NULL, updated_at INTEGER NOT NULL, PRIMARY KEY(board_url,session_id,message_id));
-      PRAGMA user_version=1;
     `);
+    this.transaction(() => {
+      if (
+        this.one<{ user_version: number }>("PRAGMA user_version")!
+          .user_version >= 2
+      )
+        return;
+      this.db.exec(`
+        CREATE TABLE boards (seq INTEGER PRIMARY KEY AUTOINCREMENT, board_id TEXT UNIQUE NOT NULL, workspace_id TEXT NOT NULL, project_id TEXT NOT NULL, name TEXT NOT NULL, description TEXT NOT NULL, created_by TEXT, created_at INTEGER NOT NULL, is_default INTEGER NOT NULL DEFAULT 0);
+        CREATE INDEX boards_scope ON boards(workspace_id,project_id,seq);
+        CREATE UNIQUE INDEX boards_default ON boards(workspace_id,project_id) WHERE is_default=1;
+        ALTER TABLE messages ADD COLUMN board_id TEXT REFERENCES boards(board_id);
+        INSERT INTO boards(board_id,workspace_id,project_id,name,description,created_at,is_default)
+          SELECT 'brd_' || lower(hex(randomblob(16))), workspace_id, project_id, 'General', 'Shared project messages', 0, 1
+          FROM (SELECT workspace_id,project_id FROM credentials UNION SELECT workspace_id,project_id FROM messages);
+        UPDATE messages SET board_id=(SELECT board_id FROM boards WHERE boards.workspace_id=messages.workspace_id AND boards.project_id=messages.project_id AND is_default=1);
+        CREATE INDEX messages_board ON messages(workspace_id,project_id,board_id,seq);
+        CREATE TRIGGER messages_board_scope BEFORE INSERT ON messages WHEN NOT EXISTS
+          (SELECT 1 FROM boards WHERE board_id=new.board_id AND workspace_id=new.workspace_id AND project_id=new.project_id)
+          BEGIN SELECT RAISE(ABORT,'Message board scope mismatch'); END;
+        PRAGMA user_version=2;
+      `);
+    });
     this.db
       .prepare("INSERT OR IGNORE INTO meta VALUES (?,?)")
       .run("cursor_secret", randomBytes(32).toString("hex"));
@@ -113,6 +136,7 @@ export class Board {
     session_id: string | null = null,
     token = randomBytes(32).toString("base64url"),
   ) {
+    this.defaultBoard(scope);
     this.run(
       "INSERT OR IGNORE INTO credentials VALUES (?,?,?,?,?,?,?,0)",
       uid("key"),
@@ -124,6 +148,36 @@ export class Board {
       session_id,
     );
     return token;
+  }
+  private defaultBoard(scope: Pick<Principal, "workspace_id" | "project_id">) {
+    const args = [scope.workspace_id, scope.project_id];
+    let board = this.one<MessageBoard>(
+      "SELECT * FROM boards WHERE workspace_id=? AND project_id=? AND is_default=1",
+      ...args,
+    );
+    if (!board) {
+      this.run(
+        "INSERT OR IGNORE INTO boards(board_id,workspace_id,project_id,name,description,created_at,is_default) VALUES (?,?,?,'General','Shared project messages',?,1)",
+        uid("brd"),
+        ...args,
+        this.now(),
+      );
+      board = this.one<MessageBoard>(
+        "SELECT * FROM boards WHERE workspace_id=? AND project_id=? AND is_default=1",
+        ...args,
+      );
+    }
+    return board!;
+  }
+  private messageBoard(p: Principal, boardId: string) {
+    return (
+      this.one<MessageBoard>(
+        "SELECT * FROM boards WHERE board_id=? AND workspace_id=? AND project_id=?",
+        boardId,
+        p.workspace_id,
+        p.project_id,
+      ) ?? fail(404, "Message board not found in this project")
+    );
   }
   authenticate(token: string): Principal {
     if (!token || token.length > 512)
@@ -211,14 +265,51 @@ export class Board {
         JSON.stringify(parsed.scope) !==
           JSON.stringify([p.workspace_id, p.project_id, p.session_id]) ||
         parsed.query !== digest(JSON.stringify(query)) ||
-        !Number.isSafeInteger(parsed.value) ||
-        parsed.value < 0
+        !Number.isSafeInteger(parsed.value)
       )
         throw new Error();
       return parsed.value;
     } catch {
       return fail(400, "Cursor does not match this scope or query");
     }
+  }
+  private sequencePage<T extends { seq: number }>(
+    p: Principal,
+    query: unknown,
+    from: string,
+    params: SQLInputValue[],
+    limit: number,
+    cursor?: string,
+    descending = true,
+  ) {
+    const position = this.position(p, query, cursor);
+    const backwards = position < 0;
+    const desc = descending !== backwards;
+    const rows = this.all<T>(
+      `SELECT * FROM ${from}${position ? ` AND seq${desc ? "<" : ">"}?` : ""} ORDER BY seq ${desc ? "DESC" : "ASC"} LIMIT ?`,
+      ...params,
+      ...(position ? [Math.abs(position)] : []),
+      limit,
+    );
+    if (backwards) rows.reverse();
+    const first = rows[0]?.seq;
+    const last = rows.at(-1)?.seq;
+    const has = (operator: string, value: number | undefined) =>
+      value !== undefined &&
+      !!this.one(
+        `SELECT 1 FROM ${from} AND seq${operator}? LIMIT 1`,
+        ...params,
+        value,
+      );
+    return {
+      items: rows,
+      cursor: has(descending ? "<" : ">", last)
+        ? this.cursor(p, query, last!)
+        : null,
+      previous_cursor: has(descending ? ">" : "<", first)
+        ? this.cursor(p, query, -first!)
+        : null,
+    };
   }
   private decorate(messages: Message[]) {
     return messages.map((m) => ({
@@ -227,6 +318,10 @@ export class Board {
         "SELECT alias FROM sessions WHERE agent_session_id=?",
         m.from_session_id,
       )!.alias,
+      from_provider: this.one<{ provider: string }>(
+        "SELECT provider FROM sessions WHERE agent_session_id=?",
+        m.from_session_id,
+      )!.provider,
       deliveries: this.all<Delivery>(
         "SELECT d.*,s.alias AS to_alias FROM deliveries d JOIN sessions s ON s.agent_session_id=d.to_session_id WHERE d.message_id=?",
         m.message_id,
@@ -293,6 +388,35 @@ export class Board {
     machineToken?: string,
   ): unknown {
     const scope = [p.workspace_id, p.project_id];
+    if (method === "boards") {
+      const { cursor, limit, ...a } = schemas.boards.parse(input);
+      const escaped = a.query.replace(/[\\%_]/g, (char) => `\\${char}`);
+      const result = this.sequencePage<MessageBoard>(
+        p,
+        ["boards", a],
+        "boards WHERE workspace_id=? AND project_id=? AND (name LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\')",
+        [...scope, `%${escaped}%`, `%${escaped}%`],
+        limit,
+        cursor,
+      );
+      const { items, ...paging } = result;
+      return { boards: items, ...paging };
+    }
+    if (method === "create_board") {
+      const a = schemas.create_board.parse(input);
+      const boardId = uid("brd");
+      this.run(
+        "INSERT INTO boards(board_id,workspace_id,project_id,name,description,created_by,created_at) VALUES (?,?,?,?,?,?,?)",
+        boardId,
+        ...scope,
+        a.name,
+        a.description,
+        p.session_id,
+        this.now(),
+      );
+      this.event(p, "board_created", { board_id: boardId, name: a.name });
+      return { ...this.messageBoard(p, boardId) };
+    }
     if (method === "register") {
       const a = schemas.register.parse(input);
       const old = this.one<Session>(
@@ -365,33 +489,51 @@ export class Board {
     if (method === "sessions") {
       const { cursor, limit, ...a } = schemas.sessions.parse(input);
       const offset = this.position(p, ["sessions", a], cursor);
-      const all = this.all<Session>(
-        "SELECT * FROM sessions WHERE workspace_id=? AND project_id=? ORDER BY alias,agent_session_id",
-        ...scope,
-      ).map((s) => ({
-        ...s,
-        connection: this.now() - s.last_seen < 45000 ? "online" : "offline",
-        state: this.now() - s.state_at < 120000 ? s.state : "unknown",
-      }));
-      const filtered = all.filter((s) =>
-        Object.entries(a).every(([k, v]) => s[k as keyof typeof s] === v),
+      if (offset < 0) fail(400, "Invalid session cursor");
+      let where = "workspace_id=? AND project_id=?";
+      const params: SQLInputValue[] = [...scope];
+      const observed = this.now();
+      for (const [key, value] of Object.entries(a)) {
+        // Filter names come only from the strict schema above.
+        where +=
+          key === "state"
+            ? " AND (CASE WHEN state_at>? THEN state ELSE 'unknown' END)=?"
+            : ` AND ${key}=?`;
+        if (key === "state") params.push(observed - 120000);
+        params.push(value);
+      }
+      const rows = this.all<Session>(
+        `SELECT * FROM sessions WHERE ${where} ORDER BY alias,agent_session_id LIMIT ? OFFSET ?`,
+        ...params,
+        limit + 1,
+        offset,
       );
       return {
-        sessions: filtered
-          .slice(offset, offset + limit)
-          .map(({ owner_id: _owner, ...s }) => s),
+        sessions: rows.slice(0, limit).map(({ owner_id: _owner, ...s }) => ({
+          ...s,
+          connection: observed - s.last_seen < 45000 ? "online" : "offline",
+          state: observed - s.state_at < 120000 ? s.state : "unknown",
+        })),
         cursor:
-          filtered.length > offset + limit
+          rows.length > limit
             ? this.cursor(p, ["sessions", a], offset + limit)
             : null,
+        previous_cursor: offset
+          ? this.cursor(p, ["sessions", a], Math.max(0, offset - limit))
+          : null,
         observed_at: this.now(),
       };
     }
-    if (method === "send" || method === "broadcast") {
+    if (method === "send" || method === "broadcast" || method === "post") {
       const a =
         method === "send"
           ? schemas.send.parse(input)
-          : schemas.broadcast.parse(input);
+          : method === "post"
+            ? schemas.post.parse(input)
+            : schemas.broadcast.parse(input);
+      const board = a.board_id
+        ? this.messageBoard(p, a.board_id)
+        : this.defaultBoard(p);
       let recipients: Session[];
       if ("to" in a) {
         recipients = this.all<Session>(
@@ -412,27 +554,34 @@ export class Board {
               alias: s.alias,
             })),
           );
-      } else {
+      } else if (method === "broadcast") {
+        const filters = schemas.broadcast.parse(input);
         recipients = this.all<Session>(
           "SELECT * FROM sessions WHERE workspace_id=? AND project_id=? AND agent_session_id<>?",
           ...scope,
           p.session_id,
         ).filter(
           (s) =>
-            (!a.provider || a.provider === s.provider) &&
-            (!a.os || a.os === s.os) &&
-            (!a.role || a.role === s.role),
+            (!filters.provider || filters.provider === s.provider) &&
+            (!filters.os || filters.os === s.os) &&
+            (!filters.role || filters.role === s.role),
         );
         if (recipients.length === 0)
           fail(404, "No matching project participants");
         if (recipients.length > 200)
           fail(400, "Narrow the broadcast to at most 200 recipients");
+      } else recipients = [];
+      if (a.reply_to) {
+        const original = this.message(p, a.reply_to);
+        if (
+          original.thread_id !== a.thread_id ||
+          original.board_id !== board.board_id
+        )
+          fail(400, "A reply must use the original message board and thread");
       }
-      if (a.reply_to && this.message(p, a.reply_to).thread_id !== a.thread_id)
-        fail(400, "A reply must use the original thread");
       const messageId = uid("msg");
       this.run(
-        "INSERT INTO messages(message_id,workspace_id,project_id,thread_id,from_session_id,kind,body,reply_to,repo_id,commit_sha,created_at,body_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO messages(message_id,workspace_id,project_id,thread_id,from_session_id,kind,body,reply_to,repo_id,commit_sha,created_at,body_hash,board_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
         messageId,
         ...scope,
         a.thread_id,
@@ -444,6 +593,7 @@ export class Board {
         a.commit_sha ?? null,
         this.now(),
         digest(a.body),
+        board.board_id,
       );
       for (const s of recipients)
         this.run(
@@ -461,6 +611,7 @@ export class Board {
       );
       return {
         message_id: messageId,
+        board_id: board.board_id,
         state: "accepted_by_board",
         recipients: recipients.map((s) => s.agent_session_id),
       };
@@ -469,12 +620,13 @@ export class Board {
       const { cursor, limit, ...a } = schemas.messages.parse(input);
       if (a.pending && !p.session_id)
         fail(400, "Pending retrieval requires a session credential");
-      const after = this.position(p, ["messages", a], cursor);
-      let where = "workspace_id=? AND project_id=? AND seq<?";
-      const params: SQLInputValue[] = [
-        ...scope,
-        after || Number.MAX_SAFE_INTEGER,
-      ];
+      let where = "workspace_id=? AND project_id=?";
+      const params: SQLInputValue[] = [...scope];
+      if (a.board_id) {
+        this.messageBoard(p, a.board_id);
+        where += " AND board_id=?";
+        params.push(a.board_id);
+      }
       if (a.thread_id) {
         where += " AND thread_id=?";
         params.push(a.thread_id);
@@ -490,18 +642,15 @@ export class Board {
           ")";
         params.push(a.pending ? p.session_id : a.session_id!);
       }
-      const rows = this.all<Message>(
-        `SELECT * FROM messages WHERE ${where} ORDER BY seq DESC LIMIT ?`,
-        ...params,
-        limit + 1,
+      const { items, ...paging } = this.sequencePage<Message>(
+        p,
+        ["messages", a],
+        `messages WHERE ${where}`,
+        params,
+        limit,
+        cursor,
       );
-      return {
-        messages: this.decorate(rows.slice(0, limit)),
-        cursor:
-          rows.length > limit
-            ? this.cursor(p, ["messages", a], rows[limit - 1]!.seq)
-            : null,
-      };
+      return { messages: this.decorate(items), ...paging };
     }
     if (method === "status") {
       const a = schemas.status.parse(input);
@@ -709,8 +858,14 @@ export class Board {
     if (method === "search") {
       const { cursor, limit, ...a } = schemas.search.parse(input);
       const offset = this.position(p, ["search", a], cursor);
+      if (offset < 0) fail(400, "Invalid search cursor");
       let where = "m.workspace_id=? AND m.project_id=?";
       const params: SQLInputValue[] = [...scope];
+      if (a.board_id) {
+        this.messageBoard(p, a.board_id);
+        where += " AND m.board_id=?";
+        params.push(a.board_id);
+      }
       if (a.thread_id) {
         where += " AND m.thread_id=?";
         params.push(a.thread_id);
@@ -723,7 +878,8 @@ export class Board {
       let score = "0";
       if (a.query) {
         const words = a.query.match(/[\p{L}\p{N}_]+/gu) ?? [];
-        if (!words.length) return { messages: [], cursor: null };
+        if (!words.length)
+          return { messages: [], cursor: null, previous_cursor: null };
         const query = words.map((w) => `"${w}"*`).join(" AND ");
         join = "JOIN message_fts ON message_fts.rowid=m.seq";
         where += " AND message_fts MATCH ?";
@@ -755,11 +911,15 @@ export class Board {
               0,
             ),
           }))
-          .sort((x, y) => y.score - x.score || y.seq - x.seq)
+          .sort((x, y) =>
+            a.sort === "newest"
+              ? y.seq - x.seq
+              : y.score - x.score || y.seq - x.seq,
+          )
           .slice(offset, offset + limit + 1);
       } else
         rows = this.all<Message>(
-          `SELECT m.*, ${score} AS score FROM messages m ${join} WHERE ${where} ORDER BY score DESC,m.seq DESC LIMIT ? OFFSET ?`,
+          `SELECT m.*, ${score} AS score FROM messages m ${join} WHERE ${where} ORDER BY ${a.sort === "newest" ? "m.seq DESC" : "score DESC,m.seq DESC"} LIMIT ? OFFSET ?`,
           ...params,
           limit + 1,
           offset,
@@ -770,26 +930,24 @@ export class Board {
           rows.length > limit
             ? this.cursor(p, ["search", a], offset + limit)
             : null,
+        previous_cursor: offset
+          ? this.cursor(p, ["search", a], Math.max(0, offset - limit))
+          : null,
         mode: a.vector ? "cosine" : "fulltext",
       };
     }
     if (method === "audit") {
       const { cursor, limit, ...a } = schemas.audit.parse(input);
-      const after = this.position(p, ["audit", a], cursor);
-      const rows = this.all<{ seq: number }>(
-        `SELECT * FROM events WHERE workspace_id=? AND project_id=? AND seq>? ${a.message_id ? "AND message_id=?" : ""} ORDER BY seq LIMIT ?`,
-        ...scope,
-        after,
-        ...(a.message_id ? [a.message_id] : []),
-        limit + 1,
+      const { items, ...paging } = this.sequencePage<{ seq: number }>(
+        p,
+        ["audit", a],
+        `events WHERE workspace_id=? AND project_id=? ${a.message_id ? "AND message_id=?" : ""}`,
+        [...scope, ...(a.message_id ? [a.message_id] : [])],
+        limit,
+        cursor,
+        false,
       );
-      return {
-        events: rows.slice(0, limit),
-        cursor:
-          rows.length > limit
-            ? this.cursor(p, ["audit", a], rows[limit - 1]!.seq)
-            : null,
-      };
+      return { events: items, ...paging };
     }
     return fail(404, "Unknown operation");
   }

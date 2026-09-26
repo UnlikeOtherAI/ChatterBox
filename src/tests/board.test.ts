@@ -76,6 +76,334 @@ function failure(fn: () => unknown, status: number) {
   assert.throws(fn, (e) => e instanceof BoardError && e.status === status);
 }
 
+test("task boards have stable shared IDs, bounded pages, scoped search and idempotent creation", () => {
+  const f = fixture();
+  try {
+    const input = {
+      name: "Same task title",
+      description: "Shared across machines",
+      idempotency_key: key(),
+    };
+    const created = f.board.call(f.a.principal, "create_board", input) as {
+      board_id: string;
+    };
+    assert.deepEqual(
+      f.board.call(f.a.principal, "create_board", input),
+      created,
+    );
+    failure(
+      () =>
+        f.board.call(f.a.principal, "create_board", {
+          ...input,
+          name: "Changed",
+        }),
+      409,
+    );
+    const other = f.board.call(f.b.principal, "create_board", {
+      ...input,
+      idempotency_key: key(),
+    }) as { board_id: string };
+    assert.notEqual(created.board_id, other.board_id);
+    const first = f.board.call(f.b.principal, "boards", { limit: 2 }) as {
+      boards: { board_id: string }[];
+      cursor: string;
+    };
+    assert.equal(first.boards.length, 2);
+    const second = f.board.call(f.b.principal, "boards", {
+      limit: 2,
+      cursor: first.cursor,
+    }) as { boards: { board_id: string }[]; cursor: string | null };
+    assert.notEqual(second.boards[0]!.board_id, other.board_id);
+    assert.equal(first.boards[0]!.board_id, other.board_id);
+    assert.equal(second.cursor, null);
+    for (let i = 0; i < 3; i++)
+      f.board.call(f.a.principal, "post", {
+        board_id: created.board_id,
+        body: `Evidence café ${i}`,
+        thread_id: "same-thread",
+        idempotency_key: key(),
+      });
+    f.board.call(f.b.principal, "post", {
+      board_id: other.board_id,
+      body: "Evidence other board",
+      thread_id: "same-thread",
+      idempotency_key: key(),
+    });
+    const page = f.board.call(f.b.principal, "messages", {
+      board_id: created.board_id,
+      limit: 2,
+    }) as { messages: Message[]; cursor: string };
+    assert.equal(page.messages.length, 2);
+    assert.ok(
+      page.messages.every(
+        (m) => m.board_id === created.board_id && m.deliveries!.length === 0,
+      ),
+    );
+    const last = f.board.call(f.b.principal, "messages", {
+      board_id: created.board_id,
+      limit: 2,
+      cursor: page.cursor,
+    }) as { messages: Message[] };
+    assert.equal(last.messages.length, 1);
+    failure(
+      () =>
+        f.board.call(f.b.principal, "messages", {
+          board_id: other.board_id,
+          cursor: page.cursor,
+        }),
+      400,
+    );
+    const found = f.board.call(f.b.principal, "search", {
+      board_id: created.board_id,
+      query: "evidence",
+      limit: 2,
+    }) as { messages: Message[]; cursor: string };
+    assert.equal(found.messages.length, 2);
+    assert.ok(found.messages.every((m) => m.board_id === created.board_id));
+    const thread = f.board.call(f.b.principal, "thread", {
+      board_id: other.board_id,
+      thread_id: "same-thread",
+    }) as { messages: Message[] };
+    assert.equal(thread.messages.length, 1);
+    failure(
+      () =>
+        f.board.call(f.b.principal, "post", {
+          board_id: other.board_id,
+          thread_id: "same-thread",
+          reply_to: page.messages[0]!.message_id,
+          body: "cross-board reply",
+          idempotency_key: key(),
+        }),
+      400,
+    );
+    const outsider = f.register(f.machine("private"), "other-scope");
+    for (const method of ["messages", "search", "post"] as const) {
+      const args =
+        method === "messages"
+          ? { board_id: created.board_id }
+          : method === "search"
+            ? { board_id: created.board_id, query: "evidence" }
+            : {
+                board_id: created.board_id,
+                body: "not allowed",
+                idempotency_key: key(),
+              };
+      failure(() => f.board.call(outsider.principal, method, args), 404);
+    }
+    failure(
+      () =>
+        f.board.call(outsider.principal, "boards", { cursor: first.cursor }),
+      400,
+    );
+    const viewer = f.board.authenticate(
+      f.board.issue(f.aMachine.principal, "viewer"),
+    );
+    failure(() => f.board.call(viewer, "create_board", input), 403);
+    failure(
+      () =>
+        f.board.call(viewer, "post", {
+          board_id: created.board_id,
+          body: "write",
+          idempotency_key: key(),
+        }),
+      403,
+    );
+  } finally {
+    f.board.close();
+  }
+});
+
+test("pagination moves both ways at any depth and binds board search and message order", () => {
+  const f = fixture();
+  try {
+    const ids: string[] = [];
+    for (let i = 0; i < 27; i++) {
+      const created = f.board.call(f.a.principal, "create_board", {
+        name: `Release ${i}`,
+        description: i === 0 ? "Literal 50%_done" : "Packaging",
+        idempotency_key: key(),
+      }) as { board_id: string };
+      ids.push(created.board_id);
+    }
+    type BoardsPage = {
+      boards: { board_id: string }[];
+      cursor: string | null;
+      previous_cursor: string | null;
+    };
+    const read = (cursor?: string) =>
+      f.board.call(f.b.principal, "boards", {
+        query: "Release",
+        limit: 1,
+        ...(cursor ? { cursor } : {}),
+      }) as BoardsPage;
+    let page = read();
+    assert.equal(page.previous_cursor, null);
+    for (const id of ids.toReversed()) {
+      assert.equal(page.boards[0]!.board_id, id);
+      if (page.cursor) page = read(page.cursor);
+    }
+    assert.equal(page.cursor, null);
+    for (const id of ids) {
+      assert.equal(page.boards[0]!.board_id, id);
+      if (page.previous_cursor) page = read(page.previous_cursor);
+    }
+    assert.equal(page.previous_cursor, null);
+    failure(
+      () =>
+        f.board.call(f.b.principal, "boards", {
+          query: "different",
+          cursor: page.cursor,
+        }),
+      400,
+    );
+    const escaped = f.board.call(f.b.principal, "boards", {
+      query: "50%_done",
+    }) as BoardsPage;
+    assert.deepEqual(
+      escaped.boards.map((b) => b.board_id),
+      [ids[0]],
+    );
+    const messageIds: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const post = f.board.call(f.a.principal, "post", {
+        board_id: ids[0],
+        body: i === 0 ? "needle" : `needle and more words ${i}`,
+        idempotency_key: key(),
+      }) as { message_id: string };
+      messageIds.push(post.message_id);
+    }
+    type MessagesPage = {
+      messages: Message[];
+      cursor: string | null;
+      previous_cursor: string | null;
+    };
+    for (const method of ["messages", "search"] as const) {
+      const args = {
+        board_id: ids[0],
+        limit: 3,
+        ...(method === "search" ? { query: "needle", sort: "newest" } : {}),
+      };
+      const first = f.board.call(f.b.principal, method, args) as MessagesPage;
+      assert.deepEqual(
+        first.messages.map((m) => m.message_id),
+        messageIds.slice(-3).toReversed(),
+      );
+      const second = f.board.call(f.b.principal, method, {
+        ...args,
+        cursor: first.cursor,
+      }) as MessagesPage;
+      const last = f.board.call(f.b.principal, method, {
+        ...args,
+        cursor: second.cursor,
+      }) as MessagesPage;
+      assert.equal(last.messages.length, 1);
+      assert.equal(last.cursor, null);
+      const back = f.board.call(f.b.principal, method, {
+        ...args,
+        cursor: last.previous_cursor,
+      }) as MessagesPage;
+      assert.deepEqual(back.messages, second.messages);
+      assert.deepEqual(
+        (
+          f.board.call(f.b.principal, method, {
+            ...args,
+            cursor: back.previous_cursor,
+          }) as MessagesPage
+        ).messages,
+        first.messages,
+      );
+      if (method === "search")
+        failure(
+          () =>
+            f.board.call(f.b.principal, method, {
+              ...args,
+              sort: "relevance",
+              cursor: first.cursor,
+            }),
+          400,
+        );
+    }
+    type AuditPage = {
+      events: { seq: number }[];
+      cursor: string | null;
+      previous_cursor: string | null;
+    };
+    const firstAudit = f.board.call(f.b.principal, "audit", {
+      limit: 2,
+    }) as AuditPage;
+    const nextAudit = f.board.call(f.b.principal, "audit", {
+      limit: 2,
+      cursor: firstAudit.cursor,
+    }) as AuditPage;
+    assert.ok(nextAudit.events[0]!.seq > firstAudit.events[1]!.seq);
+    assert.deepEqual(
+      (
+        f.board.call(f.b.principal, "audit", {
+          limit: 2,
+          cursor: nextAudit.previous_cursor,
+        }) as AuditPage
+      ).events,
+      firstAudit.events,
+    );
+  } finally {
+    f.board.close();
+  }
+});
+
+test("v1 history migrates transactionally into General and keeps IDs, search, deliveries and credentials", () => {
+  mkdirSync("work", { recursive: true });
+  const dir = mkdtempSync(resolve("work/board-migration-"));
+  const path = join(dir, "data.db");
+  const f = fixture(path);
+  const m = f.send();
+  // Recreate the exact v1 message schema from the fixture, preserving all v1 rows.
+  f.board.db.exec(
+    "DROP TRIGGER messages_board_scope; DROP INDEX messages_board; ALTER TABLE messages DROP COLUMN board_id; DROP TABLE boards; PRAGMA user_version=1;",
+  );
+  f.board.close();
+  const upgraded = new Board(path);
+  try {
+    const principal = upgraded.authenticate(f.b.token);
+    const boards = upgraded.call(principal, "boards", {}) as {
+      boards: { board_id: string; name: string }[];
+    };
+    assert.equal(boards.boards.length, 1);
+    assert.equal(boards.boards[0]!.name, "General");
+    const history = upgraded.call(principal, "messages", {
+      board_id: boards.boards[0]!.board_id,
+      pending: true,
+    }) as { messages: Message[] };
+    assert.equal(history.messages[0]!.message_id, m.message_id);
+    assert.equal(
+      history.messages[0]!.deliveries![0]!.state,
+      "accepted_by_board",
+    );
+    const found = upgraded.call(principal, "search", {
+      board_id: boards.boards[0]!.board_id,
+      query: "sqlite",
+    }) as { messages: Message[] };
+    assert.equal(found.messages[0]!.message_id, m.message_id);
+    assert.equal(
+      upgraded.one<{ user_version: number }>("PRAGMA user_version")!
+        .user_version,
+      2,
+    );
+    upgraded.close();
+    const reopened = new Board(path);
+    try {
+      assert.deepEqual(
+        reopened.call(reopened.authenticate(f.b.token), "boards", {}),
+        boards,
+      );
+    } finally {
+      reopened.close();
+    }
+  } finally {
+    if (upgraded.db.isOpen) upgraded.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("durable send, strict sender binding, replay conflict and explicit acknowledgements", () => {
   const f = fixture();
   const idempotency = key();

@@ -10,10 +10,10 @@ async function freePort() {
   await new Promise((r) => server.close(r));
   return port;
 }
-async function launch(empty = false) {
+async function launch(empty = false, large = false, openBoard = true) {
   mkdirSync("work", { recursive: true });
   const directory = mkdtempSync(resolve("work/ui-"));
-  seedDemo(directory, await freePort(), empty);
+  seedDemo(directory, await freePort(), empty, large);
   const env = { ...process.env, CHATTERBOX_HOME: directory };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.CHATTERBOX_CONFIG;
@@ -27,9 +27,13 @@ async function launch(empty = false) {
   });
   try {
     const page = await app.firstWindow();
-    await expect(
-      page.getByText("Board connected", { exact: true }),
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Connected", { exact: true })).toBeVisible({
+      timeout: 15000,
+    });
+    if (openBoard)
+      await page
+        .getByRole("button", { name: "Open General", exact: true })
+        .click();
     return { app, page, directory };
   } catch (error) {
     await app.close();
@@ -37,7 +41,7 @@ async function launch(empty = false) {
     throw error;
   }
 }
-test("desktop search, filters, thread view, delivery audit, sessions and read-only boundary", async () => {
+test("board click-through, message search, details, sessions and read-only boundary", async () => {
   const { app, page, directory } = await launch();
   try {
     await expect(page.locator(".message")).toHaveCount(5);
@@ -45,8 +49,8 @@ test("desktop search, filters, thread view, delivery audit, sessions and read-on
       .getByRole("searchbox", { name: "Search messages" })
       .fill("unicode prefix");
     await expect(page.locator(".message")).toHaveCount(1);
-    await expect(page.getByText("◇ Embedding")).toBeVisible();
-    await page.getByRole("button", { name: "View details" }).click();
+    await page.locator(".message").first().click();
+    await page.locator("summary").click();
     await expect(page.getByRole("dialog")).toContainText("embedding attached");
     await expect(page.getByRole("dialog")).toContainText("accepted by board");
     await page.getByRole("button", { name: "Close message details" }).click();
@@ -56,12 +60,6 @@ test("desktop search, filters, thread view, delivery audit, sessions and read-on
     await page.getByLabel("Message kind").selectOption("blocker");
     await expect(page.locator(".message")).toHaveCount(1);
     await page.getByLabel("Message kind").selectOption("");
-    await page
-      .locator(".thread-button")
-      .filter({ hasText: "sqlite-search" })
-      .click();
-    await expect(page.locator(".message")).toHaveCount(2);
-    await page.getByRole("button", { name: "Show all threads" }).click();
     await page.getByRole("button", { name: "Sessions", exact: false }).click();
     await expect(page.locator("#sessions .session-card")).toHaveCount(3);
     await expect(page.locator("#sessions .session-card").first()).toContainText(
@@ -77,17 +75,16 @@ test("desktop search, filters, thread view, delivery audit, sessions and read-on
     });
     expect(denied).toBe(true);
     expect(await page.evaluate(() => typeof window.require)).toBe("undefined");
-    await page
-      .getByRole("button", { name: "Network boards", exact: true })
-      .click();
-    await expect(
-      page.getByRole("heading", { name: "Network boards." }),
-    ).toBeVisible();
+    await page.getByRole("button", { name: "Network", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Network" })).toBeVisible();
     await expect(page.locator("#network-boards")).toContainText(
-      /No nearby boards found|Discovered · credentials required|Discovery unavailable/,
+      /No nearby services found|Discovered · credentials required|Discovery unavailable/,
     );
     await page
-      .getByRole("button", { name: "Message board", exact: false })
+      .getByRole("button", { name: "Message boards", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Open General", exact: true })
       .click();
     await page.screenshot({ path: "work/desktop-board.png", fullPage: true });
     await page.setViewportSize({ width: 800, height: 700 });
@@ -105,9 +102,7 @@ test("desktop search, filters, thread view, delivery audit, sessions and read-on
 test("empty dashboard explains how to connect without inventing sessions", async () => {
   const { app, page, directory } = await launch(true);
   try {
-    await expect(
-      page.getByText("A quiet board. Ready for company."),
-    ).toBeVisible();
+    await expect(page.getByText("No messages yet")).toBeVisible();
     await expect(page.locator(".message")).toHaveCount(0);
     await page.screenshot({ path: "work/desktop-empty.png", fullPage: true });
   } finally {
@@ -154,11 +149,14 @@ test("system appearance keeps native window and all dashboard surfaces in sync",
         )
         .toBe(hex);
       await page
-        .getByRole("button", { name: "Message board", exact: false })
+        .getByRole("button", { name: "Message boards", exact: true })
         .click();
+      await page
+        .getByRole("button", { name: "Open General", exact: true })
+        .click();
+      await expect(page.locator(".message")).toHaveCount(5);
       for (const selector of [
         ".sidebar",
-        ".stat",
         ".search-box",
         "select",
         ".message",
@@ -183,7 +181,7 @@ test("system appearance keeps native window and all dashboard surfaces in sync",
         path: `work/desktop-${theme}.png`,
         fullPage: true,
       });
-      await page.getByRole("button", { name: "View details" }).first().click();
+      await page.locator(".message").first().click();
       const dialogLight = await page
         .getByRole("dialog")
         .evaluate(
@@ -215,6 +213,132 @@ test("system appearance keeps native window and all dashboard surfaces in sync",
     await app.evaluate(({ nativeTheme }) => {
       nativeTheme.themeSource = "system";
     });
+  } finally {
+    await app.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("boards, messages, audit, sessions and services use bounded pages inside a full-height shell", async () => {
+  const { app, page, directory } = await launch(false, true, false);
+  try {
+    await expect(page.locator(".board-row")).toHaveCount(20);
+    await expect(page.locator(".board-row").first()).toContainText("Task 044");
+    await page.screenshot({ path: "work/desktop-boards.png" });
+    await page
+      .getByRole("button", { name: "Next boards page", exact: true })
+      .click();
+    await expect(page.getByLabel("Boards pagination")).toContainText("Page 2");
+    await expect(page.locator(".board-row")).toHaveCount(20);
+    await page
+      .getByRole("button", { name: "Next boards page", exact: true })
+      .click();
+    await expect(page.locator(".board-row")).toHaveCount(6);
+    await page
+      .getByRole("button", { name: "Open Task 000", exact: true })
+      .click();
+    await expect(page.locator(".message")).toHaveCount(50);
+    await expect(page.locator(".message").first()).toContainText(
+      "Pagination evidence 122",
+    );
+    await page.getByRole("button", { name: "Back to message boards" }).click();
+    await expect(page.getByLabel("Boards pagination")).toContainText("Page 3");
+    await page
+      .getByRole("searchbox", { name: "Search boards" })
+      .fill("Task 000");
+    await expect(page.locator(".board-row")).toHaveCount(1);
+    await page
+      .getByRole("button", { name: "Open Task 000", exact: true })
+      .click();
+    await expect(page.locator(".message")).toHaveCount(50);
+    const first = await page
+      .locator(".message")
+      .first()
+      .getAttribute("data-message-id");
+    await page.locator(".message").first().click();
+    await page.locator("summary").click();
+    await expect(page.locator(".audit-event")).toHaveCount(50);
+    await page.getByRole("button", { name: "Next audit page" }).click();
+    await expect(page.getByLabel("Audit pagination")).toContainText("Page 2");
+    await expect(page.locator(".audit-event")).toHaveCount(50);
+    await page.getByRole("button", { name: "Next audit page" }).click();
+    await expect(page.locator(".audit-event")).toHaveCount(26);
+    await page.getByRole("button", { name: "Close message details" }).click();
+    await page.getByRole("button", { name: "Next messages page" }).click();
+    await expect(page.getByLabel("Messages pagination")).toContainText(
+      "Page 2",
+    );
+    await expect(page.locator(".message")).toHaveCount(50);
+    await expect(page.locator(".message").first()).not.toHaveAttribute(
+      "data-message-id",
+      first,
+    );
+    await page.getByRole("button", { name: /Refresh/ }).click();
+    await expect(page.getByLabel("Messages pagination")).toContainText(
+      "Page 2",
+    );
+    await page.getByRole("button", { name: "Next messages page" }).click();
+    await expect(page.locator(".message")).toHaveCount(23);
+    await page.getByRole("button", { name: "Previous messages page" }).click();
+    await expect(page.locator(".message")).toHaveCount(50);
+    await page.getByRole("searchbox").fill("Pagination evidence");
+    await expect(page.getByLabel("Messages pagination")).toContainText(
+      "Page 1",
+    );
+    await page.getByLabel("Message kind").selectOption("result");
+    await expect(page.locator(".message")).toHaveCount(50);
+    await page.getByRole("button", { name: "Next messages page" }).click();
+    await expect(page.locator(".message")).toHaveCount(12);
+    await page.setViewportSize({ width: 800, height: 700 });
+    await page.locator(".content").evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+    const layout = await page.evaluate(() => ({
+      sidebarBottom: document.querySelector(".sidebar").getBoundingClientRect()
+        .bottom,
+      footerBottom: document
+        .querySelector(".sidebar-footer")
+        .getBoundingClientRect().bottom,
+      height: window.innerHeight,
+      overflow: document.documentElement.scrollHeight > window.innerHeight,
+      horizontalOverflow:
+        document.documentElement.scrollWidth > window.innerWidth,
+    }));
+    expect(layout.sidebarBottom).toBe(layout.height);
+    expect(layout.footerBottom).toBeLessThanOrEqual(layout.height);
+    expect(layout.overflow).toBe(false);
+    expect(layout.horizontalOverflow).toBe(false);
+    await page.screenshot({ path: "work/desktop-pagination.png" });
+    await page.getByRole("button", { name: "Sessions", exact: true }).click();
+    await expect(page.locator("#sessions .session-card")).toHaveCount(20);
+    await page.getByRole("button", { name: "Next sessions page" }).click();
+    await expect(page.getByLabel("Sessions pagination")).toContainText(
+      "Page 2",
+    );
+    await expect(page.locator("#sessions .session-card")).toHaveCount(20);
+    await page.getByRole("button", { name: "Next sessions page" }).click();
+    await expect(page.locator("#sessions .session-card")).toHaveCount(8);
+    await app.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler("board:discover");
+      ipcMain.handle("board:discover", () => ({
+        error: null,
+        boards: Array.from({ length: 25 }, (_, i) => ({
+          name: `Fixture service ${i}`,
+          url: `https://fixture-${i}.local:4317`,
+          host: "fixture.local",
+          addresses: [],
+          protocol: "1",
+          version: "0.1",
+          authenticated: false,
+        })),
+      }));
+    });
+    await page.getByRole("button", { name: "Network", exact: true }).click();
+    await expect(page.locator("#network-boards .session-card")).toHaveCount(20);
+    await page
+      .getByRole("button", { name: "Next network services page" })
+      .click();
+    await expect(page.locator("#network-boards .session-card")).toHaveCount(5);
   } finally {
     await app.close();
     rmSync(directory, { recursive: true, force: true });
