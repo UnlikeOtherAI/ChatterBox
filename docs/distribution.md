@@ -69,8 +69,13 @@ both `hdiutil` and the newer `diskutil image` route failed to create a DMG on th
 host. Use `npm run package -- --mac zip --arm64` there until the system image-tool
 failure is resolved. The default DMG target remains configured for supported hosts.
 
-An unpacked Linux Electron executable needs a working Chromium sandbox. On the
-local Ubuntu host, its SUID helper required root ownership/mode and unprivileged
-verification could not configure it. Do not bypass the sandbox. Verify a normal
-system DEB installation or a supported user-namespace setup before distributing
-that build for that host. Linux source/packaged UI checks on CI are separate evidence.
+Native installation is now verified for the Mac application in `/Applications`,
+the per-user Windows NSIS installation, and the Ubuntu DEB under `/opt/ChatterBox`.
+All three launched and served authenticated board reads with healthy local databases.
+
+The installed Ubuntu DEB provides an AppArmor profile allowing Chromium user
+namespaces. Its renderer ran with `--enable-sandbox`, `NoNewPrivs: 1`, and
+`Seccomp: 2`; the earlier unpacked-launch limitation does not apply to this
+installed path. Unpacked/AppImage launches still depend on the host's sandbox
+configuration. Do not bypass the sandbox. Upgrade, uninstall, signed launch,
+and store acceptance remain separate release checks. See [Verification](verification.md).
