@@ -5,6 +5,12 @@ import { app } from "electron";
 const marker = process.argv.indexOf("--board-cli");
 if (marker >= 0) {
   const args = process.argv.slice(marker + 1);
+  if (process.platform === "win32" && args[0] === "mcp") {
+    console.error(
+      "Windows MCP requires ELECTRON_RUN_AS_NODE=1 and resources/app.asar/dist/cli.js as the first argument. See docs/getting-started.md.",
+    );
+    app.exit(1);
+  }
   void app.whenReady().then(async () => {
     try {
       const { runCli } = await import("../cli.js");

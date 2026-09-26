@@ -1,4 +1,4 @@
-import { resolve } from "node:path";
+import { resolve, dirname, join } from "node:path";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 const paths =
@@ -17,6 +17,14 @@ const env = {
   ...process.env,
   CHATTERBOX_TEST_EXECUTABLE: executable,
   CHATTERBOX_TEST_CLI: executable,
+  ...(process.platform === "win32"
+    ? {
+        CHATTERBOX_TEST_CLI_SCRIPT: join(
+          dirname(executable),
+          "resources/app.asar/dist/cli.js",
+        ),
+      }
+    : {}),
 };
 delete env.ELECTRON_RUN_AS_NODE;
 for (const args of [

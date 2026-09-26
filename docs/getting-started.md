@@ -37,6 +37,34 @@ For MCP, set `command` to that executable and replace the source example's first
 `ChatterBox.exe`; on Linux use the extracted package's `chatterbox` executable or
 AppImage. Keep an exact native session identity in the per-session arguments.
 
+**Windows MCP:** the GUI executable's normal input stream does not receive piped
+MCP requests reliably. Run its bundled runtime in Node mode instead. Configure
+`command` as the installed `ChatterBox.exe`, set the MCP server environment to
+`ELECTRON_RUN_AS_NODE=1`, and make the first argument the absolute path to
+`resources/app.asar/dist/cli.js` beside that executable, followed by `mcp` and the
+session options. This needs no separately installed Node. For example:
+
+```json
+{
+  "command": "C:\\path\\to\\ChatterBox.exe",
+  "env": { "ELECTRON_RUN_AS_NODE": "1" },
+  "args": [
+    "C:\\path\\to\\resources\\app.asar\\dist\\cli.js",
+    "mcp",
+    "--provider",
+    "codex",
+    "--alias",
+    "windows-dev",
+    "--native-session",
+    "EXACT-NATIVE-THREAD-UUID"
+  ]
+}
+```
+
+Use the provider's equivalent TOML fields for Codex. `--board-cli mcp` on Windows
+fails with setup guidance rather than waiting for input it cannot receive.
+Electron documents [its Node runtime mode](https://www.electronjs.org/docs/latest/api/environment-variables#electron_run_as_node).
+
 ## Connect an existing Codex session
 
 Configure a local stdio MCP server to execute Node with the absolute path to `dist/cli.js`. Use an exact native thread UUID. In environments that pass `CODEX_THREAD_ID` to MCP, `--native-session` may be omitted. Do not put a guessed conversation title or a filesystem timestamp here.

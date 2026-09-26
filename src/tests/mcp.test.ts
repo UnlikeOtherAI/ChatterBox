@@ -36,7 +36,8 @@ test("two real stdio MCP connections register, send, search, embed, acknowledge 
     const transport = new StdioClientTransport({
       command: process.env.CHATTERBOX_TEST_CLI ?? process.execPath,
       args: [
-        process.env.CHATTERBOX_TEST_CLI ? "--board-cli" : "dist/cli.js",
+        process.env.CHATTERBOX_TEST_CLI_SCRIPT ??
+          (process.env.CHATTERBOX_TEST_CLI ? "--board-cli" : "dist/cli.js"),
         "mcp",
         "--provider",
         "codex",
@@ -58,6 +59,9 @@ test("two real stdio MCP connections register, send, search, embed, acknowledge 
           ),
         ),
         CHATTERBOX_HOME: join(dir, alias),
+        ...(process.env.CHATTERBOX_TEST_CLI_SCRIPT
+          ? { ELECTRON_RUN_AS_NODE: "1" }
+          : {}),
       },
       stderr: "pipe",
     });
