@@ -9,3 +9,7 @@ Preserve exact native session identity, project-scoped credentials, alias ambigu
 Keep orchestration, agent spawning, task assignment, terminal control, source synchronization, and editable dashboard controls outside the product. Run lint, backend/MCP tests, and Electron user-flow tests. Build on native macOS, Windows, and Linux hosts. Update every affected document and record exactly which provider, OS, installer, and store gates passed. Publishing to stores and Homebrew requires its own signing, installation, upgrade, and review evidence.
 
 Keep LAN discovery through `_chatterbox._tcp.local` available in the desktop and CLI. Advertise only reachable TLS services; discovery is an unauthenticated address hint and never replaces scoped credentials or certificate checks. Follow [Network discovery](network-discovery.md).
+
+Keep the supplied ChatterBox artwork consistent across the packaged icon and
+dashboard brand. Follow system light/dark appearance live: native window frame,
+neutral gray background, content, controls, and dialogs must stay in sync.

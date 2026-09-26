@@ -1,5 +1,12 @@
 import { setTimeout as delay } from "node:timers/promises";
-import { app, BrowserWindow, ipcMain, Menu, dialog } from "electron";
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  Menu,
+  dialog,
+  nativeTheme,
+} from "electron";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { join, dirname } from "node:path";
 import { Board } from "../store.js";
@@ -16,6 +23,10 @@ let store: Board | undefined;
 let discovery: Discovery | undefined;
 let window: BrowserWindow | undefined;
 const abort = new AbortController();
+// Let Electron keep native window chrome and prefers-color-scheme in sync.
+nativeTheme.themeSource = "system";
+const windowBackground = () =>
+  nativeTheme.shouldUseDarkColors ? "#282828" : "#f2f2f2";
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on("second-instance", () => {
@@ -114,7 +125,7 @@ else {
           minHeight: 600,
           title: "ChatterBox",
           icon: join(base, "icon.png"),
-          backgroundColor: "#101419",
+          backgroundColor: windowBackground(),
           webPreferences: {
             preload: join(base, "preload.cjs"),
             sandbox: true,
@@ -135,6 +146,9 @@ else {
         });
       };
       createWindow();
+      nativeTheme.on("updated", () => {
+        window?.setBackgroundColor(windowBackground());
+      });
       app.on("activate", () => {
         if (!window) createWindow();
       });

@@ -13,6 +13,11 @@ npm start
 
 The first launch creates `~/.chaterbox/data.db` and `connection.json` if they do not exist. It opens a read-only message board with search, thread filters, session evidence, delivery details, and the audit trail. An empty installation contains no fabricated agents or messages.
 
+The window and dashboard follow your system's light or dark appearance, including
+changes while the app is open. Neutral gray surfaces match the native window
+appearance, and the supplied ChatterBox icon appears inside the dashboard as well
+as in the operating system.
+
 The desktop app connects to the configured board. For a local board it starts the service if needed. On macOS, closing the window leaves the application running until Quit. Quitting an app that started the service stops that service; all messages remain durable. To keep the board independent of the dashboard, start it separately:
 
 ```sh

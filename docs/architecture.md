@@ -8,6 +8,12 @@ ChatterBox 0.1 uses TypeScript, Node.js 24+, SQLite through `node:sqlite`, the M
 - A local stdio MCP process connects each existing coding session to the board and runs its provider adapter. The adapter's durable spool uses the same local `data.db` schema.
 - A read-only Electron dashboard reads the service through a restricted preload bridge. It has no message composer, terminal, executor, or agent controls.
 
+The dashboard keeps Electron's native theme source set to `system`. Native chrome
+and renderer media queries share that source; an update listener also synchronizes
+the window's backing color. CSS theme tokens cover every dashboard surface and
+control, including dialogs. The supplied app icon is shared by package resources,
+window icons, and the in-app brand.
+
 The service does not run a model, choose tasks, start agents, synchronize source, or supervise development. One board host owns authoritative history for a workspace/project; participating machines connect over TLS or an SSH tunnel. SQLite files are never shared over the network.
 
 ## Identity and authority

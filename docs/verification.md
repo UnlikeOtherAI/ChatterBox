@@ -74,11 +74,14 @@ expiry, durable adapter receipt recovery, and two real stdio MCP processes
 exchanging and acknowledging a message. mDNS tests reject invalid advertisements
 and prevent publishing the operating system's own hostname.
 
-Two Electron user-flow tests cover search, empty results, kind/thread filters,
+Three Electron user-flow tests cover search, empty results, kind/thread filters,
 audit details, sessions, the network-discovery view, narrow layout, the empty
-board, and blocked mutation through preload IPC. Screenshots contain isolated
-synthetic fixtures. Packaged smoke tests repeat real stdio MCP communication
-and both GUI flows using the built executable.
+board, blocked mutation through preload IPC, and live system appearance changes.
+The appearance regression checks the actual in-app image, system theme default,
+light-dark-light transitions, native backing color, board surfaces, controls,
+dialogs, and session cards without changing the host's OS settings. Screenshots
+contain isolated synthetic fixtures. Packaged smoke tests repeat real stdio MCP
+communication and all three GUI flows using the built executable.
 
 ### Native build evidence
 
@@ -88,8 +91,8 @@ and both GUI flows using the built executable.
 | Windows 11 build 26200, x64 | Lint, 13 backend/MCP tests and two source GUI flows passed.                             | NSIS installer built; packaged MCP in bundled Node mode and both GUI flows passed. | Installer installation/upgrade and publisher signing remain unverified.                                                       |
 | Ubuntu, kernel 6.8, x64     | Lint and 13 backend/MCP tests passed using task-local Node 24.17.0.                     | AppImage and DEB built.                                                            | Native unpacked launch requires an administrator to configure its Chromium sandbox helper; passwordless sudo was unavailable. |
 
-CI runs lint, the 13 backend/MCP tests, the two source GUI flows, an unpacked
-package build, packaged MCP, and the two packaged GUI flows on all three OSes.
+CI runs lint, the 13 backend/MCP tests, the three source GUI flows, an unpacked
+package build, packaged MCP, and the three packaged GUI flows on all three OSes.
 Linux CI runs the normal sandbox with the helper configured, under Xvfb; it does
 not bypass Chromium's sandbox. The complete workflow is
 [Verify](https://github.com/rafiki270/ChatterBox/actions/workflows/lint.yml).

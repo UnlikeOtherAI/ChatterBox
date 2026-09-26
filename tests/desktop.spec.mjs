@@ -18,6 +18,8 @@ async function launch(empty = false) {
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.CHATTERBOX_CONFIG;
   const app = await electron.launch({
+    // Playwright otherwise emulates light mode and hides native theme changes.
+    colorScheme: null,
     ...(process.env.CHATTERBOX_TEST_EXECUTABLE
       ? { executablePath: process.env.CHATTERBOX_TEST_EXECUTABLE, args: [] }
       : { args: ["."] }),
@@ -108,6 +110,111 @@ test("empty dashboard explains how to connect without inventing sessions", async
     ).toBeVisible();
     await expect(page.locator(".message")).toHaveCount(0);
     await page.screenshot({ path: "work/desktop-empty.png", fullPage: true });
+  } finally {
+    await app.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("system appearance keeps native window and all dashboard surfaces in sync", async () => {
+  const { app, page, directory } = await launch();
+  try {
+    expect(
+      await app.evaluate(({ nativeTheme }) => nativeTheme.themeSource),
+    ).toBe("system");
+    await expect(page.locator(".brand-icon")).toHaveJSProperty(
+      "naturalWidth",
+      1024,
+    );
+    // Exercise Electron's native appearance propagation without changing OS settings.
+    for (const theme of ["light", "dark", "light"]) {
+      await app.evaluate(({ nativeTheme }, value) => {
+        nativeTheme.themeSource = value;
+      }, theme);
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => window.matchMedia("(prefers-color-scheme: dark)").matches,
+          ),
+        )
+        .toBe(theme === "dark");
+      const color = await page
+        .locator("html")
+        .evaluate((el) => window.getComputedStyle(el).backgroundColor);
+      const channels = color.match(/\d+/g).map(Number);
+      expect(channels[0]).toBe(channels[1]);
+      expect(channels[1]).toBe(channels[2]);
+      expect(channels[0] > 128).toBe(theme === "light");
+      const hex = `#${channels.map((n) => n.toString(16).padStart(2, "0")).join("")}`;
+      await expect
+        .poll(() =>
+          app.evaluate(({ BrowserWindow }) =>
+            BrowserWindow.getAllWindows()[0].getBackgroundColor().toLowerCase(),
+          ),
+        )
+        .toBe(hex);
+      await page
+        .getByRole("button", { name: "Message board", exact: false })
+        .click();
+      for (const selector of [
+        ".sidebar",
+        ".stat",
+        ".search-box",
+        "select",
+        ".message",
+      ]) {
+        const rgb = await page
+          .locator(selector)
+          .first()
+          .evaluate((el) =>
+            window
+              .getComputedStyle(el)
+              .backgroundColor.match(/\d+/g)
+              .slice(0, 3)
+              .map(Number),
+          );
+        expect(
+          rgb.every((channel) =>
+            theme === "light" ? channel > 128 : channel < 128,
+          ),
+        ).toBe(true);
+      }
+      await page.screenshot({
+        path: `work/desktop-${theme}.png`,
+        fullPage: true,
+      });
+      await page.getByRole("button", { name: "View details" }).first().click();
+      const dialogLight = await page
+        .getByRole("dialog")
+        .evaluate(
+          (el) =>
+            Number(
+              window.getComputedStyle(el).backgroundColor.match(/\d+/)[0],
+            ) > 128,
+        );
+      expect(dialogLight).toBe(theme === "light");
+      await page.screenshot({
+        path: `work/desktop-${theme}-details.png`,
+        fullPage: true,
+      });
+      await page.getByRole("button", { name: "Close message details" }).click();
+      await page
+        .getByRole("button", { name: "Sessions", exact: false })
+        .click();
+      const sessionLight = await page
+        .locator(".session-card")
+        .first()
+        .evaluate(
+          (el) =>
+            Number(
+              window.getComputedStyle(el).backgroundColor.match(/\d+/)[0],
+            ) > 128,
+        );
+      expect(sessionLight).toBe(theme === "light");
+    }
+    await app.evaluate(({ nativeTheme }) => {
+      nativeTheme.themeSource = "system";
+    });
   } finally {
     await app.close();
     rmSync(directory, { recursive: true, force: true });

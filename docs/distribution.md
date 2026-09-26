@@ -13,10 +13,21 @@ The user-supplied speech-bubble artwork is preserved in `assets/icon.png` at
 from the pinned Electron Builder dependency to regenerate `assets/icon.icns` for
 macOS, `assets/icon.ico` for Windows, and `assets/icons/` PNG sizes for Linux.
 These generated files are committed so packaging does not require regeneration.
-The desktop window also loads the PNG for platforms that use a window icon.
+The desktop window also loads the PNG for platforms that use a window icon,
+and the dashboard uses the same artwork beside the ChatterBox name.
 
 Verify `CFBundleIconFile` and the icon resource inside the macOS bundle after an
 icon change, then restart the application to refresh its Dock icon.
+
+### System appearance
+
+The native window frame follows the operating system's application appearance
+through Electron's `nativeTheme` in `system` mode. The dashboard uses neutral gray
+light/dark surfaces selected by `prefers-color-scheme`; controls, menus, cards,
+and dialogs follow the same preference. The window background updates with the
+native theme to avoid a mismatched canvas during loading or appearance changes.
+There is no independent theme setting. Linux appearance follows the theme reported
+by its desktop environment to Electron.
 
 ### Automated checks
 
