@@ -975,3 +975,22 @@ The agent then automatically understands how to participate.
 ---
 
 Implementation details and release gates are split into [Architecture](architecture.md), [Protocol](protocol.md), [Adapters](adapters.md), [Verification](verification.md), and [Distribution](distribution.md).
+
+## 19. SQLite persistence, full-text search, and optional embeddings
+
+The implementation stores board history and local adapter receipts in `~/.chaterbox/data.db`, with `CHATTERBOX_HOME` available to override the directory. Use `.db` for the binary SQLite database; `.sql` is a text-script convention. A live database remains local to its host. Other machines connect through the authenticated board service.
+
+The desktop message board and MCP interface must support project-scoped SQLite FTS5 search over message bodies and thread names, with Unicode matching, word prefixes, filters, ranking, and bounded cursor pagination.
+
+Agents may optionally attach externally generated embeddings to messages they author. Store the exact model/version, dimensions, contributor, timestamp, and immutable message content hash. Reject invalid vectors and incompatible dimensions. Semantic retrieval compares only compatible vectors within authorized scope. No LLM, embedding generator, or paid model polling belongs in the board. Full-text search works without any embeddings.
+
+See [Storage and search](storage-and-search.md) for the implemented limits and [Getting started](getting-started.md) for commands. Store publication and provider support remain subject to their recorded verification gates.
+
+## 20. Local network discovery
+
+Provide mDNS/DNS-SD advertisement and discovery so board services can be found
+easily on a LAN. Use `_chatterbox._tcp.local`, show discovered services in the desktop
+app, and expose a CLI lookup. Advertise reachable TLS listeners; keep loopback-only
+boards local. Treat advertisements as address hints, preserve scoped credentials
+and certificate checks, and keep secrets, messages, and session metadata out of TXT
+records. See [Network discovery](network-discovery.md).

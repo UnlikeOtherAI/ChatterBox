@@ -1,22 +1,46 @@
-# Desktop and distribution plan
+# Desktop and distribution
 
-ChatterBox is intended as one product with native packages for macOS, Windows, and Linux. Its dashboard is read-only and shows projects, sessions, presence evidence, threads, messages, and delivery states. A local adapter and board service may run without the dashboard; the desktop app must not become an executor or agent supervisor.
+ChatterBox uses Electron for the dashboard and Node.js for the service and MCP adapters. The source build targets macOS, Windows, and Linux. `npm run package` builds the configured direct packages on the native host: DMG/ZIP for macOS, NSIS for Windows, and AppImage/DEB for Linux. Electron includes its runtime; the same packaged executable exposes the CLI and MCP server with `--board-cli`, using its bundled runtime. Windows stdio MCP uses the bundled Node mode and explicit script path described in [Getting started](getting-started.md); the GUI-mode input pipe is unsuitable there. The source CLI requires Node.js 24+.
 
-## Target channels
+The dashboard is read-only. It can start a local service or connect to an existing service. A daemon run with `node dist/cli.js serve` remains independent of the dashboard. Automatic installation as a login/background service is not implemented; choose an OS service manager explicitly when deploying the source CLI.
 
-| Platform | Target channels                                                                            | Gate before publication                                                                                         |
-| -------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| macOS    | Mac App Store and a signed, notarized direct download; Homebrew cask for the direct build. | Native build, signing, sandbox and background-service feasibility, install and upgrade, review of store rules.  |
-| Windows  | Microsoft Store and a signed direct installer.                                             | Native build, installer identity, background-service behavior, install and upgrade, store validation.           |
-| Linux    | Flathub or Snap Store and a direct package where useful.                                   | Native build on target distributions, sandbox/portal and service behavior, install and upgrade, channel review. |
+## Verification pipeline
 
-The specific desktop framework, packaging format, release pipeline, and license are open decisions. Do not imply a store has approved an artifact or that any installer exists. Choose a stack only after native packaging and provider-adapter constraints are tested on each OS. Homebrew refers to distribution of the macOS direct build; a formula is only appropriate if a command-line service is also packaged separately.
+The GitHub Actions matrix builds, lints, tests real SQLite and stdio MCP processes, runs Electron UI tests, and produces and smoke-tests an unpacked application (including its bundled MCP command) on macOS, Windows, and Linux. The Linux UI job uses Xvfb and configures the packaged Chromium sandbox helper with root ownership and mode 4755. Native host results and installer smoke tests are recorded in [Verification](verification.md). Tests and demo data use isolated directories.
 
-## Cross-platform release checklist
+Do not confuse an unpacked application build with signing, notarization, installer validation, or store review. Release artifacts must be built from a known Git revision, checksummed, and separately verified on their target OS.
 
-- Build the dashboard, service, and adapters on each native host from a tagged revision.
-- Verify user-level service lifecycle, OS login/restart, network loss/recovery, and application upgrades.
-- Verify that stored messages survive app and OS restarts and that a removed session cannot accept new deliveries.
-- Verify install, launch, uninstall, and data preservation for each package format.
-- Sign, notarize, or otherwise attest artifacts as required by the chosen channel.
-- Publish only channels that have passed their own review and installation checks.
+## Target channels and remaining gates
+
+| Platform | Planned channels                                                                              | Publication gate                                                                                                                                        |
+| -------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS    | Signed/notarized DMG and ZIP; Homebrew cask; Mac App Store if sandbox constraints can be met. | Developer ID and notarization credentials, Apple Silicon/Intel coverage, install/upgrade smoke test, Mac App Store sandbox/provider-access feasibility. |
+| Windows  | Signed NSIS installer; Microsoft Store package.                                               | Publisher/signing identity, native install/upgrade smoke test, MSIX/store packaging and certification.                                                  |
+| Linux    | AppImage/DEB; Flathub or Snap Store.                                                          | Target distribution install/upgrade smoke tests, desktop integration, sandbox/portal/provider-access feasibility, store manifest and review.            |
+
+Store submission is not automated or approved by this initial implementation. Store sandboxes may constrain reading provider metadata, launching a local provider queue command, and running background services. Each channel needs a tested packaging design before it is advertised. Direct packages retain the full local adapter design.
+
+A Homebrew cask should reference a tagged, signed, notarized macOS release artifact and its real SHA-256 checksum. Do not publish a placeholder URL or checksum. A separate formula becomes appropriate when the CLI distribution is published independently. No Homebrew package is published yet.
+
+## Release checklist
+
+- Build from a tagged revision on every native host and retain checksums and provenance.
+- Verify fresh install, launch, shutdown, uninstall, data preservation, and upgrade from the previous schema.
+- Verify signed macOS launch through Gatekeeper and notarization; verify the Windows publisher and installer identity.
+- Verify source CLI and packaged dashboard use the documented `~/.chaterbox/data.db` location and preserve existing history.
+- Verify provider delivery on the exact native provider releases and OS combinations before enabling those capabilities.
+- Verify network loss/reconnection, backup/restore, credential revocation, and the retention/redaction policy.
+- Submit only independently validated packages to their chosen stores; record acceptance separately from build success.
+
+The macOS package declares `NSLocalNetworkUsageDescription` and `_chatterbox._tcp` in `NSBonjourServices`. Native firewall, local-network permission, and store-sandbox validation remain release checks for mDNS; see [Network discovery](network-discovery.md).
+
+The macOS 27 host used during development built the ZIP and ran its application;
+both `hdiutil` and the newer `diskutil image` route failed to create a DMG on that
+host. Use `npm run package -- --mac zip --arm64` there until the system image-tool
+failure is resolved. The default DMG target remains configured for supported hosts.
+
+An unpacked Linux Electron executable needs a working Chromium sandbox. On the
+local Ubuntu host, its SUID helper required root ownership/mode and unprivileged
+verification could not configure it. Do not bypass the sandbox. Verify a normal
+system DEB installation or a supported user-namespace setup before distributing
+that build for that host. Linux source/packaged UI checks on CI are separate evidence.

@@ -29,3 +29,21 @@ Every session starts at `MAILBOX` until a versioned proof upgrades it. Explicit 
 - [Official OpenAI Codex app-server protocol](https://learn.chatgpt.com/docs/app-server)
 - [Official Claude Code Channels guide](https://code.claude.com/docs/en/channels)
 - [Official Claude Code Channels reference](https://code.claude.com/docs/en/channels-reference)
+
+## Implemented adapter behavior (0.1)
+
+The stdio MCP command binds one native ID to one board session, resolves the provider version with `--version`, and starts a local adapter. It inherits the existing provider's authentication and never selects or starts a model. Registration exposes its version/runtime/OS evidence in the session list.
+
+Current automatic capability rules are deliberately narrow:
+
+| Provider           | Runtime/OS           | Version                                | Transport                                               |
+| ------------------ | -------------------- | -------------------------------------- | ------------------------------------------------------- |
+| Codex              | macOS CLI or desktop | `codex-cli 0.157.1` or `0.158.0` alpha | `QUEUED` when configured for `codex-queue`              |
+| Claude Code        | macOS CLI            | `2.1.283`                              | `LIVE` when configured for an opted-in `claude-channel` |
+| Other combinations | Any                  | Any                                    | `MAILBOX`                                               |
+
+These rules preserve the earlier probe evidence; they do not prove consumption for a new delivery. The adapter records `queued_with_provider` or `notification_sent` and waits for `board_ack`. Claude Desktop push stays unverified. Windows and Linux board builds do not by themselves upgrade native provider capabilities.
+
+Each incoming envelope is stored locally before dispatch. The adapter processes one leased message at a time. Codex is called with an argument array, an exact native UUID, no shell, and no model override. A stored queue receipt suppresses duplicate queue calls after a lost server report. Claude's notification includes the message ID, sender, and thread; unacknowledged notifications may repeat after five minutes. A crash between native delivery and the local receipt can duplicate input, so the recipient must deduplicate message IDs before acting.
+
+The service's event stream wakes adapters. A fifteen-second deterministic timer refreshes presence and recovers missed events, expired leases, and retry deadlines. This is ordinary software activity and consumes no model tokens. [Getting started](getting-started.md) provides configuration examples and the development channel opt-in.
