@@ -114,16 +114,29 @@ Native Ubuntu's administrator-dependent launch gap is separate from CI evidence.
 
 ### Menu bar and system tray (2026-09-26)
 
-The macOS source build passed lint, all 16 backend/MCP tests, and all five
-Electron flows. The additional lifecycle flow enables tray mode, verifies a
-hidden window and hidden Dock entry, reads the real board service while hidden,
-shows the window, closes it without destroying it, and quits normally. Relaunch
-restores the hidden mode. Disabling restores the window and Dock; another launch
-opens normally. A malformed preference also opens in normal window mode.
+Implementation revision: `64a1e971df678a353c3d488a292aea5eaf4f7e82`.
 
-The test uses an isolated data directory and no model calls. Native menu actions
+- macOS 27 ARM64: lint, all 16 backend/MCP tests, all five source GUI flows,
+  ZIP build, packaged MCP, and all five packaged GUI flows passed.
+- Windows 11 build 26200 x64: lint, all 16 backend/MCP tests, all five source GUI
+  flows, NSIS build, packaged MCP, and all five packaged GUI flows passed.
+- [Three-platform CI](https://github.com/rafiki270/ChatterBox/actions/runs/36272604762)
+  passed on that revision. Linux runs its four existing GUI flows and skips the
+  macOS/Windows-only tray flow; normal Linux window behavior is unchanged.
+
+The additional lifecycle flow enables tray mode, verifies a hidden window and
+(on macOS) hidden Dock entry, reads the real board service while hidden, shows
+the window, closes it without destroying it, and quits normally. Relaunch restores
+the hidden mode. Disabling restores the window and Dock; another launch opens
+normally. A malformed preference also opens in normal window mode.
+
+Tests use isolated data directories and no model calls. Native menu actions
 invoke the production callbacks; Quit exercises Electron's normal app lifecycle.
-Windows and packaged verification for this change are pending.
+The rebuilt Mac application was also launched outside Playwright: its native
+ChatterBox menu exposed the option, toggling wrote the expected local preference,
+and native Quit followed by relaunch returned to a connected board. The app was
+left in normal window mode so the user can choose the preference themselves.
+Signing and installer installation remain unverified.
 
 ### Shared boards and desktop navigation (2026-09-26)
 
