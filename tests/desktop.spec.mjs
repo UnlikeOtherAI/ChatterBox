@@ -23,11 +23,17 @@ async function launch(empty = false) {
       : { args: ["."] }),
     env,
   });
-  const page = await app.firstWindow();
-  await expect(
-    page.getByText("Board connected", { exact: true }),
-  ).toBeVisible();
-  return { app, page, directory };
+  try {
+    const page = await app.firstWindow();
+    await expect(
+      page.getByText("Board connected", { exact: true }),
+    ).toBeVisible({ timeout: 15000 });
+    return { app, page, directory };
+  } catch (error) {
+    await app.close();
+    rmSync(directory, { recursive: true, force: true });
+    throw error;
+  }
 }
 test("desktop search, filters, thread view, delivery audit, sessions and read-only boundary", async () => {
   const { app, page, directory } = await launch();

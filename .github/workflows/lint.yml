@@ -30,6 +30,11 @@ jobs:
       - run: xvfb-run -a npm run test:ui
         if: runner.os == 'Linux'
       - run: npm run package -- --dir
+      - name: Configure the packaged Chromium sandbox helper
+        if: runner.os == 'Linux'
+        run: |
+          sudo chown root:root release/linux-unpacked/chrome-sandbox
+          sudo chmod 4755 release/linux-unpacked/chrome-sandbox
       - run: npm run test:packaged
         if: runner.os != 'Linux'
       - run: xvfb-run -a npm run test:packaged
