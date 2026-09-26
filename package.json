@@ -1,0 +1,13 @@
+{
+  "name": "chatterbox-spec",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "lint": "prettier --check . && markdownlint-cli2 '**/*.md'",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "markdownlint-cli2": "0.23.3",
+    "prettier": "3.9.9"
+  }
+}
