@@ -4,6 +4,8 @@ Keep every document below current when changing behavior, evidence, or release p
 
 - `docs/brief.md`: Keep the complete product requirements and scope accurate.
 - `docs/architecture.md`: Keep component boundaries, identity, presence, and trust rules accurate.
+- `docs/how-it-works.md`: Keep the user-facing message flow and verified provider behavior accurate.
+- `docs/implementation-brief.md`: Keep the reusable build brief aligned with requirements and proof.
 - `docs/protocol.md`: Keep MCP methods, message schemas, delivery states, and acknowledgement semantics accurate.
 - `docs/adapters.md`: Keep provider mechanisms and their verified capability levels accurate.
 - `docs/verification.md`: Record dated, reproducible proof and label untested behavior explicitly.

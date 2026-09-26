@@ -8,6 +8,8 @@ The project is in the specification and provider-verification stage. [The origin
 
 - [Brief](docs/brief.md): product requirements and provider questions.
 - [Architecture](docs/architecture.md): component boundaries, identity, presence, and security.
+- [How it works](docs/how-it-works.md): the planned message path and verified provider behavior.
+- [Copy-paste implementation brief](docs/implementation-brief.md): a concise handoff for building the app.
 - [Protocol](docs/protocol.md): MCP surface, message envelope, and delivery states.
 - [Adapters](docs/adapters.md): Codex and Claude Code integration contracts.
 - [Verification](docs/verification.md): dated proof results, limits, and remaining tests.
