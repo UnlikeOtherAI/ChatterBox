@@ -24,3 +24,9 @@ Remove workspace banners, thread shortcuts, decorative actions, and slogans.
 Keep the sidebar at full window height and content scrolling
 inside the shell. Preserve existing data through the schema-2 General migration.
 See [Message boards](message-boards.md).
+
+Preserve the saved native menu bar/system tray option on macOS and Windows.
+Enabling it hides the window and Dock/taskbar entry, closing hides the window,
+and the tray offers Show and Quit. Relaunch into the saved mode. Quitting stops
+services started by the app. Keep desktop preferences separate from connection
+credentials and the read-only board IPC. See [Desktop](desktop.md).

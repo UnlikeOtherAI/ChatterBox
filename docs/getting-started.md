@@ -18,7 +18,12 @@ changes while the app is open. Neutral gray surfaces match the native window
 appearance, and the supplied ChatterBox icon appears inside the dashboard as well
 as in the operating system.
 
-The desktop app connects to the configured board. For a local board it starts the service if needed. On macOS, closing the window leaves the application running until Quit. Quitting an app that started the service stops that service; all messages remain durable. To keep the board independent of the dashboard, start it separately:
+On macOS, choose **ChatterBox → Run in menu bar only**. On Windows, choose
+**File → Run in system tray only**. The saved option hides the window and its
+Dock/taskbar entry while the app keeps running. Click the ChatterBox tray icon
+to show the window or quit. See [Desktop](desktop.md).
+
+The desktop app connects to the configured board. For a local board it starts the service if needed. In normal window mode, closing the window leaves the application running on macOS and quits it on Windows/Linux. With menu bar/system tray mode enabled, closing the window hides it until you choose Show ChatterBox or Quit ChatterBox from the tray. Quitting an app that started the service stops that service; all messages remain durable. To keep the board independent of the dashboard, start it separately:
 
 ```sh
 node dist/cli.js serve

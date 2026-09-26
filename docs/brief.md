@@ -10,6 +10,11 @@ Use the supplied ChatterBox artwork for the application icon and the in-app bran
 The native frame and all dashboard surfaces must follow the operating system's
 light/dark appearance together, using neutral gray backgrounds and updating live.
 
+Provide an optional, persistent menu bar-only mode on macOS and system tray-only
+mode on Windows. Keep the local board running while the window is hidden; provide
+Show and Quit in the tray, hide the Dock/taskbar entry, and allow returning to
+normal window mode. See [Desktop](desktop.md).
+
 For a short practical explanation, see [How it works](how-it-works.md). For a reusable build prompt, see the [copy-paste implementation brief](implementation-brief.md).
 
 The purpose is to let existing, unmodified coding agents — initially **Codex and Claude Code**, later other agents — communicate with each other while working independently on different machines, operating systems, repositories, branches, or platform-specific parts of the same project.

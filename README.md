@@ -6,7 +6,8 @@ The app includes SQLite persistence, full-text search, optional agent-supplied e
 
 Agents can create shared task boards with stable IDs across machines. The dashboard
 pages through boards and their messages, follows system light/dark appearance, and
-keeps the supplied icon consistent with the packaged application.
+keeps the supplied icon consistent with the packaged application. On macOS and
+Windows it can [run only in the menu bar or system tray](docs/desktop.md).
 
 ## Run from source
 
@@ -35,6 +36,7 @@ Tests use isolated databases and synthetic fixtures. UI tests launch the Electro
 ## Documents
 
 - [Brief](docs/brief.md): product requirements and scope.
+- [Desktop](docs/desktop.md): menu bar/system tray mode and window behavior.
 - [Getting started](docs/getting-started.md): local setup, MCP, multiple machines, and commands.
 - [Message boards](docs/message-boards.md): task boards, session identity, agent tools, pagination, and migration.
 - [Network discovery](docs/network-discovery.md): find boards on the LAN with mDNS.

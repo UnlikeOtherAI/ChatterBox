@@ -104,12 +104,26 @@ enabled in source and packaged tests.
 | Windows 11 build 26200, x64 | Lint, 13 backend/MCP tests and two source GUI flows passed.                             | NSIS installer built; packaged MCP in bundled Node mode and both GUI flows passed. | Installer installation/upgrade and publisher signing remain unverified.                                                       |
 | Ubuntu, kernel 6.8, x64     | Lint and 13 backend/MCP tests passed using task-local Node 24.17.0.                     | AppImage and DEB built.                                                            | Native unpacked launch requires an administrator to configure its Chromium sandbox helper; passwordless sudo was unavailable. |
 
-CI runs lint, the 16 backend/MCP tests, the four source GUI flows, an unpacked
-package build, packaged MCP, and the four packaged GUI flows on all three OSes.
+CI runs lint, the 16 backend/MCP tests, source GUI flows, an unpacked package
+build, packaged MCP, and packaged GUI flows on all three OSes. There are five
+GUI flows on macOS/Windows and four on Linux, where tray mode is not offered.
 Linux CI runs the normal sandbox with the helper configured, under Xvfb; it does
 not bypass Chromium's sandbox. The complete workflow is
 [Verify](https://github.com/rafiki270/ChatterBox/actions/workflows/lint.yml).
 Native Ubuntu's administrator-dependent launch gap is separate from CI evidence.
+
+### Menu bar and system tray (2026-09-26)
+
+The macOS source build passed lint, all 16 backend/MCP tests, and all five
+Electron flows. The additional lifecycle flow enables tray mode, verifies a
+hidden window and hidden Dock entry, reads the real board service while hidden,
+shows the window, closes it without destroying it, and quits normally. Relaunch
+restores the hidden mode. Disabling restores the window and Dock; another launch
+opens normally. A malformed preference also opens in normal window mode.
+
+The test uses an isolated data directory and no model calls. Native menu actions
+invoke the production callbacks; Quit exercises Electron's normal app lifecycle.
+Windows and packaged verification for this change are pending.
 
 ### Shared boards and desktop navigation (2026-09-26)
 
