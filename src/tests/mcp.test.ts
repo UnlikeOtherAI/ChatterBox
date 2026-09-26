@@ -138,6 +138,11 @@ test("two real stdio MCP connections register, send, search, embed, acknowledge 
     for (const { client } of sessions) await client.close();
     await service.close();
     board.close();
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(dir, {
+      recursive: true,
+      force: true,
+      maxRetries: 30,
+      retryDelay: 100,
+    });
   }
 });

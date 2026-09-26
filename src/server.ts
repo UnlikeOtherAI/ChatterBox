@@ -208,10 +208,11 @@ export async function serve(
       clearInterval(timer);
       await announcement?.close();
       for (const c of clients) c.response.end();
-      server.closeAllConnections();
-      await new Promise<void>((resolve, reject) =>
+      const closed = new Promise<void>((resolve, reject) =>
         server.close((error) => (error ? reject(error) : resolve())),
       );
+      server.closeAllConnections();
+      await closed;
     },
   };
 }
