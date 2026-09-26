@@ -95,6 +95,27 @@ not bypass Chromium's sandbox. The complete workflow is
 [Verify](https://github.com/rafiki270/ChatterBox/actions/workflows/lint.yml).
 Native Ubuntu's administrator-dependent launch gap is separate from CI evidence.
 
+### App icon verification (2026-09-26)
+
+The supplied speech-bubble artwork, including its white background, is now the
+packaged application icon. Native macOS ARM64 ZIP, Windows x64 NSIS, and Linux
+x64 AppImage/DEB builds passed with the generated icons.
+
+- The Mac bundle's `CFBundleIconFile` points to `icon.icns`; its resource matches
+  the committed file byte for byte, and its rendered image matches the artwork.
+- The icon extracted from the Windows executable matches the supplied artwork.
+- The DEB includes all eight generated PNG sizes under the hicolor icon theme.
+- Mac source UI and packaged MCP/UI checks passed. The initial source UI run
+  encountered the already-running app's single-instance lock; quitting that app
+  before testing resolved it.
+- The rebuilt Mac application was relaunched and its native accessibility tree
+  reported **Board connected**, with no synthetic records in the real board.
+- [Three-platform CI](https://github.com/rafiki270/ChatterBox/actions/runs/36268184631)
+  passed lint, backend/MCP tests, source UI flows, packaging, and packaged flows
+  for icon implementation commit `5ee4e99`.
+
+These checks do not extend the signing or installer-lifecycle claims above.
+
 ### LAN discovery evidence
 
 A Mac board listening on TLS advertised `_chatterbox._tcp.local` with the dedicated
