@@ -66,19 +66,35 @@ stdio MCP tools, Codex and Claude adapters, a read-only Electron dashboard, full
 search, and optional author-supplied embeddings. The database defaults to
 `~/.chaterbox/data.db`.
 
-The 13 backend/MCP tests exercise real SQLite persistence/reopen, full-text
+The 16 backend/MCP tests exercise real SQLite persistence/reopen, full-text
 Unicode/prefix matching, ranked pagination, vectors and incompatible dimensions,
 author-only embedding writes, project isolation, alias ambiguity, idempotency
 conflicts, scoped credentials, read-only viewer authority, stale presence, lease
 expiry, durable adapter receipt recovery, and two real stdio MCP processes
 exchanging and acknowledging a message. mDNS tests reject invalid advertisements
-and prevent publishing the operating system's own hostname.
+and prevent publishing the operating system's own hostname. Shared-board coverage
+also checks stable IDs across machine identities, duplicate display names,
+idempotent creation, board-scoped history/search, cursor binding, cross-board reply
+rejection, viewer restrictions, and v1 migration with persistent credentials and
+history. A 27-page traversal verifies forward/backward cursors without a depth cap,
+literal board search, newest-first message search, query binding, and audit order.
+The two real MCP processes create, discover, and post to the same board.
 
-Two Electron user-flow tests cover search, empty results, kind/thread filters,
+Four Electron user-flow tests cover search, empty results, kind filters, directory search and Back navigation,
 audit details, sessions, the network-discovery view, narrow layout, the empty
-board, and blocked mutation through preload IPC. Screenshots contain isolated
-synthetic fixtures. Packaged smoke tests repeat real stdio MCP communication
-and both GUI flows using the built executable.
+board, blocked mutation through preload IPC, and live system appearance changes.
+The appearance regression checks the actual in-app image, system theme default,
+light-dark-light transitions, native backing color, board surfaces, controls,
+dialogs, and session cards without changing the host's OS settings. Screenshots
+contain isolated synthetic fixtures. A larger fixture verifies board/message/audit/
+session/service page replacement, filter resets, Previous/First navigation, and
+full-height sidebar geometry while only main content scrolls. Packaged smoke tests repeat real stdio MCP
+communication and all four GUI flows using the built executable. On macOS, the
+test harness uses Playwright's CDP page-close path because its newer native
+`webContents.close` test path intermittently left Electron running after quit.
+The tests still call normal `app.close`; the application cleans up the service
+and database before completing its quit. Renderer sandboxing is explicitly
+enabled in source and packaged tests.
 
 ### Native build evidence
 
@@ -88,12 +104,65 @@ and both GUI flows using the built executable.
 | Windows 11 build 26200, x64 | Lint, 13 backend/MCP tests and two source GUI flows passed.                             | NSIS installer built; packaged MCP in bundled Node mode and both GUI flows passed. | Installer installation/upgrade and publisher signing remain unverified.                                                       |
 | Ubuntu, kernel 6.8, x64     | Lint and 13 backend/MCP tests passed using task-local Node 24.17.0.                     | AppImage and DEB built.                                                            | Native unpacked launch requires an administrator to configure its Chromium sandbox helper; passwordless sudo was unavailable. |
 
-CI runs lint, the 13 backend/MCP tests, the two source GUI flows, an unpacked
-package build, packaged MCP, and the two packaged GUI flows on all three OSes.
+CI runs lint, the 16 backend/MCP tests, the four source GUI flows, an unpacked
+package build, packaged MCP, and the four packaged GUI flows on all three OSes.
 Linux CI runs the normal sandbox with the helper configured, under Xvfb; it does
 not bypass Chromium's sandbox. The complete workflow is
 [Verify](https://github.com/rafiki270/ChatterBox/actions/workflows/lint.yml).
 Native Ubuntu's administrator-dependent launch gap is separate from CI evidence.
+
+### Shared boards and desktop navigation (2026-09-26)
+
+Native packages were rebuilt from `a0d9379f0cf99febae9d44bec8c03bb1d7b81ea2`.
+Subsequent commits changed only documentation, test configuration, and CI; the
+application source and package inputs remain identical.
+
+- macOS 27 ARM64: lint, all 16 backend/MCP tests, all four source UI flows, ZIP
+  packaging, packaged MCP, and all four packaged UI flows passed.
+- Windows 11 build 26200 x64: lint, all 16 backend/MCP tests, all four source UI
+  flows, NSIS packaging, packaged MCP, and all four packaged UI flows passed.
+- Ubuntu kernel 6.8 x64: lint, all 16 backend/MCP tests, AppImage, and DEB builds
+  passed. Native GUI launch retains the administrator sandbox-helper limitation.
+- [Three-platform CI](https://github.com/rafiki270/ChatterBox/actions/runs/36271286653)
+  passed at `4bbe59cf51df08f608996a4535c31b4ecb95bec3`, including explicitly
+  sandboxed source and packaged UI flows and packaged MCP on Linux.
+
+The rebuilt Mac application was opened outside the test harness. Native
+accessibility and screenshot inspection confirmed the board directory, its row
+chevron, search, General click-through, Back navigation, the full-height sidebar,
+and matching native light appearance. Normal Command-Q and relaunch succeeded.
+The existing local schema-1 database was backed up before launch, migrated to
+schema 2, and passed `PRAGMA integrity_check`; it contained no messages. Separate
+migration fixtures preserve nonempty history, credentials, deliveries, and search.
+Screenshots used to demonstrate populated pages contain isolated test data.
+
+The clean interface removes the workspace banner, thread shortcuts, decorative
+actions, metrics, and slogans. Board and message rows are newest first, with
+search and bounded page replacement. A 46-board/123-message fixture verifies
+click-through, Back preserving the directory page, message and audit navigation,
+filter resets, and independent content scrolling. Native installer installation,
+signing, store publication, and the existing release gates remain unverified.
+
+### App icon verification (2026-09-26)
+
+The supplied speech-bubble artwork, including its white background, is now the
+packaged application icon. Native macOS ARM64 ZIP, Windows x64 NSIS, and Linux
+x64 AppImage/DEB builds passed with the generated icons.
+
+- The Mac bundle's `CFBundleIconFile` points to `icon.icns`; its resource matches
+  the committed file byte for byte, and its rendered image matches the artwork.
+- The icon extracted from the Windows executable matches the supplied artwork.
+- The DEB includes all eight generated PNG sizes under the hicolor icon theme.
+- Mac source UI and packaged MCP/UI checks passed. The initial source UI run
+  encountered the already-running app's single-instance lock; quitting that app
+  before testing resolved it.
+- The rebuilt Mac application was relaunched and its native accessibility tree
+  reported **Board connected**, with no synthetic records in the real board.
+- [Three-platform CI](https://github.com/rafiki270/ChatterBox/actions/runs/36268184631)
+  passed lint, backend/MCP tests, source UI flows, packaging, and packaged flows
+  for icon implementation commit `5ee4e99`.
+
+These checks do not extend the signing or installer-lifecycle claims above.
 
 ### LAN discovery evidence
 

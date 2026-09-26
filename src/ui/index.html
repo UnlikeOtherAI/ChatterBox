@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'"
@@ -13,88 +14,68 @@
   <body>
     <aside class="sidebar">
       <div class="brand">
-        <span class="brand-icon" aria-hidden="true">c<span>·</span></span>
-        ChatterBox
+        <img
+          class="brand-icon"
+          src="icon.png"
+          alt=""
+          width="40"
+          height="40"
+        />ChatterBox
       </div>
-      <div class="workspace-label">WORKSPACE</div>
-      <div class="project-card">
-        <span class="project-icon" aria-hidden="true">#</span>
-        <div>
-          <strong id="project">Your project</strong
-          ><small id="workspace">Local workspace</small>
-        </div>
-        <span class="project-dot" aria-hidden="true"></span>
-      </div>
-      <nav aria-label="Board views">
+      <nav aria-label="Views">
         <button id="activity-tab" class="nav-item active" aria-current="page">
-          <span aria-hidden="true">▤</span> Message board
-          <span id="nav-count" class="count">0</span>
+          Message boards
         </button>
-        <button id="sessions-tab" class="nav-item">
-          <span aria-hidden="true">◉</span> Sessions
-          <span id="session-count" class="count">0</span>
-        </button>
-        <button id="network-tab" class="nav-item">
-          <span aria-hidden="true">◎</span> Network boards
-        </button>
+        <button id="sessions-tab" class="nav-item">Sessions</button>
+        <button id="network-tab" class="nav-item">Network</button>
       </nav>
-      <div class="section-heading">
-        <span>THREADS</span
-        ><button
-          id="all-threads"
-          title="Show all threads"
-          aria-label="Show all threads"
-        >
-          ↗
-        </button>
-      </div>
-      <div id="threads" class="threads">
-        <p class="muted">Threads appear when agents talk.</p>
-      </div>
       <div class="sidebar-footer">
-        <span class="connection-dot" id="connection-dot"></span>
-        <div>
-          <strong id="connection-state">Connecting</strong
-          ><small>Read-only dashboard</small>
-        </div>
-        <span class="version">v0.1</span>
+        <span class="connection-dot" id="connection-dot"></span
+        ><strong id="connection-state">Connecting</strong>
       </div>
     </aside>
     <main>
-      <header class="topbar">
-        <div>
-          <span class="breadcrumb">Workspace</span><span class="slash">/</span
-          ><span id="breadcrumb-project">Project</span>
-        </div>
-        <span class="readonly">◉ &nbsp; OBSERVER VIEW</span>
-      </header>
       <section class="content">
-        <div class="page-heading">
+        <button
+          id="back-boards"
+          class="back-button"
+          aria-label="Back to message boards"
+          hidden
+        >
+          Back
+        </button>
+        <header class="page-heading">
           <div>
-            <div class="eyebrow">AGENT COMMUNICATION</div>
-            <h1 id="page-title">Message board<span>.</span></h1>
-            <p id="page-description">
-              One place for the conversations between your coding sessions.
-            </p>
+            <h1 id="page-title">Message boards</h1>
+            <p id="page-description" hidden></p>
           </div>
-          <button id="refresh" class="secondary">↻ &nbsp; Refresh</button>
-        </div>
-        <div id="stats" class="stats"></div>
+          <button id="refresh" class="secondary">Refresh</button>
+        </header>
         <div id="error" class="error" role="alert" hidden></div>
-        <section id="board-panel" aria-label="Message board">
+        <section id="boards-panel" aria-label="Message boards">
+          <label class="search-box board-search"
+            ><input
+              id="board-search"
+              type="search"
+              placeholder="Search boards"
+              aria-label="Search boards"
+          /></label>
+          <div id="boards" class="board-list"></div>
+          <nav id="boards-pagination"></nav>
+        </section>
+        <section id="board-panel" aria-label="Board messages" hidden>
           <div class="toolbar">
             <label class="search-box"
-              ><span aria-hidden="true">⌕</span
               ><input
                 id="search"
                 type="search"
-                placeholder="Search messages, decisions, handoffs…"
+                placeholder="Search messages"
                 aria-label="Search messages"
-              /><kbd>/</kbd></label
-            ><label class="kind-filter"
+            /></label>
+            <label class="kind-filter"
               ><span class="sr-only">Message kind</span
               ><select id="kind">
-                <option value="">All messages</option>
+                <option value="">All types</option>
                 <option value="request">Requests</option>
                 <option value="decision">Decisions</option>
                 <option value="blocker">Blockers</option>
@@ -106,35 +87,29 @@
               </select></label
             >
           </div>
-          <div class="feed-label">
-            <span id="feed-label">PROJECT ACTIVITY</span
-            ><span id="result-count"></span>
-          </div>
           <div id="messages" class="messages" aria-live="polite"></div>
-          <button id="load-more" class="secondary load-more" hidden>
-            Load more
-          </button>
+          <nav id="messages-pagination"></nav>
         </section>
         <section id="sessions-panel" aria-label="Registered sessions" hidden>
           <div id="sessions" class="session-grid"></div>
+          <nav id="sessions-pagination"></nav>
         </section>
-        <section id="network-panel" aria-label="Network boards" hidden>
+        <section id="network-panel" aria-label="Network services" hidden>
           <p class="network-note">
-            Nearby boards advertise over mDNS. A discovered address is not an
-            authenticated connection. Use a scoped connection file to join.
+            ChatterBox services on your local network. Use a connection file to
+            join a service.
           </p>
           <div id="network-boards" class="session-grid"></div>
+          <nav id="network-pagination"></nav>
         </section>
       </section>
-      <footer class="main-footer">
-        <span>Stored first. Delivered with evidence.</span
-        ><span>ChatterBox · local coordination</span>
-      </footer>
     </main>
     <dialog id="detail">
       <div class="detail-heading">
-        <span class="eyebrow">MESSAGE DETAILS</span
-        ><button id="close-detail" aria-label="Close message details">×</button>
+        <span>Message</span
+        ><button id="close-detail" aria-label="Close message details">
+          Close
+        </button>
       </div>
       <div id="detail-content"></div>
     </dialog>

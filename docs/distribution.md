@@ -6,7 +6,32 @@ The dashboard is read-only. It can start a local service or connect to an existi
 
 ## Verification pipeline
 
-The GitHub Actions matrix builds, lints, tests real SQLite and stdio MCP processes, runs Electron UI tests, and produces and smoke-tests an unpacked application (including its bundled MCP command) on macOS, Windows, and Linux. The Linux UI job uses Xvfb and configures the packaged Chromium sandbox helper with root ownership and mode 4755. Native host results and installer smoke tests are recorded in [Verification](verification.md). Tests and demo data use isolated directories.
+### App icon
+
+The user-supplied speech-bubble artwork is preserved in `assets/icon.png` at
+1024 × 1024, including its white background. `npm run icons` uses the icon converter
+from the pinned Electron Builder dependency to regenerate `assets/icon.icns` for
+macOS, `assets/icon.ico` for Windows, and `assets/icons/` PNG sizes for Linux.
+These generated files are committed so packaging does not require regeneration.
+The desktop window also loads the PNG for platforms that use a window icon,
+and the dashboard uses the same artwork beside the ChatterBox name.
+
+Verify `CFBundleIconFile` and the icon resource inside the macOS bundle after an
+icon change, then restart the application to refresh its Dock icon.
+
+### System appearance
+
+The native window frame follows the operating system's application appearance
+through Electron's `nativeTheme` in `system` mode. The dashboard uses neutral gray
+light/dark surfaces selected by `prefers-color-scheme`; controls, menus, cards,
+and dialogs follow the same preference. The window background updates with the
+native theme to avoid a mismatched canvas during loading or appearance changes.
+There is no independent theme setting. Linux appearance follows the theme reported
+by its desktop environment to Electron.
+
+### Automated checks
+
+The GitHub Actions matrix builds, lints, tests real SQLite and stdio MCP processes, runs Electron UI tests, and produces and smoke-tests an unpacked application (including its bundled MCP command) on macOS, Windows, and Linux. The Linux UI job uses Xvfb and configures both the source and packaged Chromium sandbox helpers with root ownership and mode 4755, with sandboxing explicitly enabled in Playwright. Native host results and installer smoke tests are recorded in [Verification](verification.md). Tests and demo data use isolated directories.
 
 Do not confuse an unpacked application build with signing, notarization, installer validation, or store review. Release artifacts must be built from a known Git revision, checksummed, and separately verified on their target OS.
 

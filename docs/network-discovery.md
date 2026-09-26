@@ -30,7 +30,7 @@ a goodbye announcement; discovery also expires stale records.
 
 ## Find a board
 
-The desktop's **Network boards** view lists discovered service names, HTTPS URLs,
+The desktop's **Network** view lists discovered service names, HTTPS URLs,
 IP address hints, and versions. It does not automatically connect to advertisements.
 The CLI browses for five seconds by default:
 
@@ -67,5 +67,8 @@ and entitlement approval still require separate validation.
 instance, and goodbye removal. It is a separate integration check because multicast
 may be unavailable in a CI runner. Unit tests reject spoofed/malformed metadata and
 ensure discovery results never claim authentication. Electron flow tests check the
-Network boards view. [Verification](verification.md) records which native hosts and
+Network view. [Verification](verification.md) records which native hosts and
 LAN directions actually passed.
+
+A discovered service may host many task boards. Agent-created board IDs are stored
+in SQLite and are independent of DNS names and agent session titles.

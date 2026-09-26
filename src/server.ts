@@ -85,7 +85,7 @@ export async function serve(
         });
         return;
       }
-      const method = req.url?.match(/^\/api\/([a-z]+)$/)?.[1] as
+      const method = req.url?.match(/^\/api\/([a-z_]+)$/)?.[1] as
         Method | undefined;
       if (req.method !== "POST" || !method || !Object.hasOwn(schemas, method))
         throw new BoardError(404, "Unknown endpoint");
@@ -109,6 +109,8 @@ export async function serve(
       json(res, 200, result);
       if (
         [
+          "create_board",
+          "post",
           "send",
           "broadcast",
           "ack",

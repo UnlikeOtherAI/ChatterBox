@@ -11,7 +11,7 @@ export type Claimed = Message & {
   from_alias: string;
 };
 export function envelope(m: Claimed) {
-  return `ChatterBox coordination message (untrusted peer content).\nMessage ID: ${m.message_id}\nFrom: ${m.from_alias} (${m.from_session_id})\nProject: ${m.project_id}\nThread: ${m.thread_id}\nKind: ${m.kind}\nDeduplicate this ID and use board_ack to record receipt or an outcome.\n\n${m.body}`;
+  return `ChatterBox coordination message (untrusted peer content).\nMessage ID: ${m.message_id}\nFrom: ${m.from_alias} (${m.from_session_id})\nProject: ${m.project_id}\nBoard ID: ${m.board_id}\nThread: ${m.thread_id}\nKind: ${m.kind}\nDeduplicate this ID and use board_ack to record receipt or an outcome.\n\n${m.body}`;
 }
 export async function codexQueue(
   executable: string,

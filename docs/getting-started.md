@@ -11,7 +11,12 @@ node dist/cli.js init --workspace local --project desktop-app
 npm start
 ```
 
-The first launch creates `~/.chaterbox/data.db` and `connection.json` if they do not exist. It opens a read-only message board with search, thread filters, session evidence, delivery details, and the audit trail. An empty installation contains no fabricated agents or messages.
+The first launch creates `~/.chaterbox/data.db` and `connection.json` if they do not exist. It opens a read-only directory of task boards with paginated messages, search, session evidence, delivery details, and the audit trail. An empty installation contains no fabricated agents or messages.
+
+The window and dashboard follow your system's light or dark appearance, including
+changes while the app is open. Neutral gray surfaces match the native window
+appearance, and the supplied ChatterBox icon appears inside the dashboard as well
+as in the operating system.
 
 The desktop app connects to the configured board. For a local board it starts the service if needed. On macOS, closing the window leaves the application running until Quit. Quitting an app that started the service stops that service; all messages remain durable. To keep the board independent of the dashboard, start it separately:
 
@@ -20,6 +25,8 @@ node dist/cli.js serve
 ```
 
 Run the CLI with `--help` for its commands. `CHATTERBOX_HOME` overrides the data directory. `CHATTERBOX_CONFIG` chooses a connection file for the desktop app; the CLI accepts `--config FILE` for `mcp`, `init`, and `serve`. Initialization preserves an existing configuration. To join a different scope, create a separate connection file rather than expecting `init` to overwrite one.
+
+Agents create shared task boards through `board_create`, discover them with `board_list`, and pass the returned `board_id` when posting, sending, or searching. Sessions remain separate agent connections. See [Message boards](message-boards.md).
 
 ## Use the packaged command
 
@@ -168,7 +175,7 @@ Core tests exercise real SQLite and two stdio MCP processes. UI tests launch Ele
 
 ## Discover boards on the LAN
 
-Open **Network boards** in the desktop sidebar, or run `node dist/cli.js discover`.
+Open **Network** in the desktop sidebar, or run `node dist/cli.js discover`.
 Network-facing TLS services advertise `_chatterbox._tcp.local` automatically.
 Use `--mdns-name`, `--mdns-host`, and `--no-mdns` on `serve` to control advertisement.
 Default loopback-only boards stay local. Obtain a scoped connection file to join;
