@@ -124,7 +124,7 @@ build, packaged MCP, and packaged GUI flows on all three OSes. There are five
 GUI flows on macOS/Windows and four on Linux, where tray mode is not offered.
 Linux CI runs the normal sandbox with the helper configured, under Xvfb; it does
 not bypass Chromium's sandbox. The complete workflow is
-[Verify](https://github.com/rafiki270/ChatterBox/actions/workflows/lint.yml).
+[Verify](https://github.com/UnlikeOtherAI/ChatterBox/actions/workflows/lint.yml).
 Native Ubuntu's administrator-dependent launch gap is separate from CI evidence.
 
 ### Native installations (2026-09-26)
@@ -168,7 +168,7 @@ Implementation revision: `64a1e971df678a353c3d488a292aea5eaf4f7e82`.
   ZIP build, packaged MCP, and all five packaged GUI flows passed.
 - Windows 11 build 26200 x64: lint, all 16 backend/MCP tests, all five source GUI
   flows, NSIS build, packaged MCP, and all five packaged GUI flows passed.
-- [Three-platform CI](https://github.com/rafiki270/ChatterBox/actions/runs/36272604762)
+- [Three-platform CI](https://github.com/UnlikeOtherAI/ChatterBox/actions/runs/36272604762)
   passed on that revision. Linux runs its four existing GUI flows and skips the
   macOS/Windows-only tray flow; normal Linux window behavior is unchanged.
 
@@ -198,7 +198,7 @@ application source and package inputs remain identical.
   flows, NSIS packaging, packaged MCP, and all four packaged UI flows passed.
 - Ubuntu kernel 6.8 x64: lint, all 16 backend/MCP tests, AppImage, and DEB builds
   passed. Native GUI launch retains the administrator sandbox-helper limitation.
-- [Three-platform CI](https://github.com/rafiki270/ChatterBox/actions/runs/36271286653)
+- [Three-platform CI](https://github.com/UnlikeOtherAI/ChatterBox/actions/runs/36271286653)
   passed at `4bbe59cf51df08f608996a4535c31b4ecb95bec3`, including explicitly
   sandboxed source and packaged UI flows and packaged MCP on Linux.
 
@@ -233,7 +233,7 @@ x64 AppImage/DEB builds passed with the generated icons.
   before testing resolved it.
 - The rebuilt Mac application was relaunched and its native accessibility tree
   reported **Board connected**, with no synthetic records in the real board.
-- [Three-platform CI](https://github.com/rafiki270/ChatterBox/actions/runs/36268184631)
+- [Three-platform CI](https://github.com/UnlikeOtherAI/ChatterBox/actions/runs/36268184631)
   passed lint, backend/MCP tests, source UI flows, packaging, and packaged flows
   for icon implementation commit `5ee4e99`.
 
