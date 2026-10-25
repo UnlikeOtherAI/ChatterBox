@@ -375,13 +375,24 @@ export async function prepareWorktree(repository: string, job: Launch) {
   if (!isAbsolute(repository))
     throw new Error("Approved repository must have an absolute path");
   const root = realpathSync(repository);
+  const bare =
+    (
+      await execute("git", ["-C", root, "rev-parse", "--is-bare-repository"])
+    ).stdout.trim() === "true";
   const top = realpathSync(
     (
-      await execute("git", ["-C", root, "rev-parse", "--show-toplevel"])
+      await execute("git", [
+        "-C",
+        root,
+        "rev-parse",
+        bare ? "--absolute-git-dir" : "--show-toplevel",
+      ])
     ).stdout.trim(),
   );
   if (top !== root)
-    throw new Error("Approved repository must be its exact Git worktree root");
+    throw new Error(
+      "Approved repository must be its exact Git worktree or bare repository root",
+    );
   const actual = (
     await execute("git", ["-C", root, "rev-parse", `${job.base_sha}^{commit}`])
   ).stdout.trim();

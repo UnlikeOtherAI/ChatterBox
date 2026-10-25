@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, realpathSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -608,6 +609,54 @@ test("readiness wait followed by ready and restart emits a distinct crash blocke
     assert.equal(notices.length, 2);
   } finally {
     journal.close();
+    f.board.close();
+  }
+});
+
+test("an approved bare repository creates an isolated worker worktree at its exact base", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "chatterbox-host-bare-"));
+  execFileSync("git", ["init", "--bare", "--object-format=sha1", directory], {
+    stdio: "ignore",
+  });
+  const tree = execFileSync("git", ["-C", directory, "mktree"], {
+    input: "",
+    encoding: "utf8",
+  }).trim();
+  const commit = execFileSync(
+    "git",
+    [
+      "-C",
+      directory,
+      "-c",
+      "user.name=Host test",
+      "-c",
+      "user.email=host-test@example.invalid",
+      "commit-tree",
+      tree,
+      "-m",
+      "Host fixture",
+    ],
+    { encoding: "utf8" },
+  ).trim();
+  const f = fixture();
+  try {
+    f.request(undefined, { base_sha: commit });
+    const job = f.claim()[0]!;
+    const worktree = await prepareWorktree(directory, job);
+    assert.equal(inside(realpathSync(directory), realpathSync(worktree)), true);
+    assert.equal(
+      execFileSync("git", ["-C", worktree, "rev-parse", "HEAD"], {
+        encoding: "utf8",
+      }).trim(),
+      commit,
+    );
+    assert.equal(
+      execFileSync("git", ["-C", worktree, "status", "--porcelain"], {
+        encoding: "utf8",
+      }).trim(),
+      "",
+    );
+  } finally {
     f.board.close();
   }
 });

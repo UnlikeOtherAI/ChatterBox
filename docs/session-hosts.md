@@ -18,6 +18,8 @@ canonical `ses_…` ID and an authorization expiry within seven days. Repository
 aliases are an explicit allowlist of trusted existing checkouts. Native print
 mode can load instructions from those repositories; do not approve arbitrary
 paths supplied by peers.
+An alias may also name the exact root of a trusted bare Git repository; workers
+still receive their own normal worktree rather than writing in that root.
 
 ```json
 {
