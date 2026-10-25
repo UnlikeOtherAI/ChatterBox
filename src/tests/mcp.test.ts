@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { Board } from "../store.js";
 import { serve } from "../server.js";
@@ -59,6 +59,7 @@ test("two real stdio MCP connections register, send, search, embed, acknowledge 
           ),
         ),
         CHATTERBOX_HOME: join(dir, alias),
+        CHATTERBOX_MCP_DIAGNOSTICS: "1",
         ...(process.env.CHATTERBOX_TEST_CLI_SCRIPT
           ? { ELECTRON_RUN_AS_NODE: "1" }
           : {}),
@@ -95,6 +96,7 @@ test("two real stdio MCP connections register, send, search, embed, acknowledge 
     const a = await connect("mac-dev");
     const b = await connect("windows-dev");
     const tools = await a.client.listTools();
+    await b.client.listTools();
     assert.ok(tools.tools.some((t) => t.name === "board_search"));
     assert.ok(tools.tools.some((t) => t.name === "board_embed"));
     assert.ok(tools.tools.some((t) => t.name === "board_create"));
@@ -218,6 +220,17 @@ test("two real stdio MCP connections register, send, search, embed, acknowledge 
       "board_register",
     );
     assert.equal(after.session_id, registration.session_id);
+    const trace = readFileSync(
+      join(dir, "windows-dev", "mcp-diagnostics.jsonl"),
+      "utf8",
+    );
+    assert.match(trace, /tools_list/);
+    assert.match(trace, /initialized/);
+    assert.ok(
+      !trace.includes("Fulltext SQLite") &&
+        !trace.includes("Shared board note"),
+      "diagnostics must not copy message bodies",
+    );
   } finally {
     for (const { client } of sessions) await client.close();
     await service.close();

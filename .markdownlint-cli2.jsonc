@@ -8,6 +8,7 @@
     "!node_modules",
     "!.git",
     "!work",
+    "!.worktrees",
     "!dist",
     "!release",
     "!test-results",

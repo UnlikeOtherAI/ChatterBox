@@ -6,6 +6,7 @@ Keep every document below current when changing behavior, evidence, or release p
 - `docs/communication-architecture.md`: Keep coordinator/worker routing, authority, lifecycle boundaries and noise defaults accurate.
 - `docs/communication-improvement-report.md`: Keep observed failures, dated proof, reviews and shipped limitations accurate.
 - `docs/agent-guide.md`: Keep copy-paste LLM instructions, permissions, identity, recovery, and acknowledgements accurate.
+- `docs/session-hosts.md`: Keep opt-in host setup, coordinator authority, native evidence and recovery accurate.
 - `docs/live-session-test.md`: Keep real provider test topology, outcomes, limits, and reproduction steps tied to evidence.
 - `docs/evidence/live-session-2026-09-26.json`: Preserve sanitized live test evidence; add a dated record when retesting.
 - `LICENSE`: Keep copyright and MIT distribution terms consistent with package metadata.

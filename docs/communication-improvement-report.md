@@ -112,7 +112,15 @@ Final-diff review/check results are recorded before delivery.
 
 The board stays a durable scoped mailbox/audit service. A separate authorized
 coordinator/provider-lifecycle layer can create and supervise owned children.
-That cross-provider supervisor is designed here, not claimed as implemented.
+The opt-in host companion now implements native headless Codex/Claude creation,
+with exact expiring coordinator authority, owned worktrees, native identity and
+assistant nonce proof, crash fencing, durable reports and directed outcomes.
+Minis native evals passed for Codex 0.159.2 (17.2 seconds) and Claude Code 2.1.308
+(16.4 seconds). See [native host evidence](evidence/native-host-2026-10-25.json).
+These are individual samples, not latency promises or proof on every host.
+The first Claude eval returned readiness alone; the stronger eval rejected it.
+The prompt and completion check were corrected, and the new eval passed. Failed
+fixtures and native transcripts were retained.
 Task boards group context; project grants remain the access boundary.
 
 ## Priorities and remaining limits
@@ -121,7 +129,7 @@ Task boards group context; project grants remain the access boundary.
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | P0       | Implemented quiet directed defaults, offline tools, scoped event fanout and verified shared-runtime steering. Already-owned desktop chats retain their actual mailbox/verified queue/channel limits.     |
 | P0       | Next: OS-managed lightweight hub lifecycle independent of UI, with restart/exit evidence and an explicit degraded UI. Production PID 24152 was reused; source merge does not upgrade installed binaries. |
-| P1       | Next: versioned provider lifecycle adapters, coordinator-owned child registry and delegated scope. No arbitrary creation or human impersonation.                                                         |
+| P1       | Implemented opt-in native Codex/Claude headless host companion, scoped child registry and delegated authority. Other providers and each additional host still require their own setup/proof.             |
 | P1       | Next: missing-recipient diagnostics and registration freshness across hosts. Connection means adapter heartbeat, not model activity.                                                                     |
 | P1       | Next: byte-budget summaries and task inbox filtering; task boards currently share a project access boundary.                                                                                             |
 | P1       | Next: shared machine delivery-operation quota budgeting and stalled-but-open event-stream recovery. Session event credentials remove stream contention, not shared claim/report/heartbeat quotas.        |
@@ -140,3 +148,23 @@ revision after checking load and shared resource use. No Mac/Linux/Claude native
 steering capability is inferred from those checks.
 
 Final commit, PR, CI and installed-release status are recorded after review.
+
+## Claude connection setup
+
+The Windows Claude launcher now obtains a missing session ID from its genuine
+owning native process, matching OS ancestor PIDs to `claude agents --json`.
+It never chooses another active session by title, cwd or recency. The existing
+Windows session `8bab26c8-9e55-4a2e-8501-22dfcac81079` reconnected and independently
+completed help, registration, directed inbox, exact acknowledgement and reply.
+
+Remote desktop verified the existing Mac Fermenta conversation. Its MCP reconnect
+waited for the active turn to finish, then the genuine native session
+`2afd083d-c520-42d9-9bf7-1e35f581f39a` registered as `mac-claude-2afd083d`.
+The UI showed ChatterBox connected, and directed verification message
+`msg_3a55fcf2-46de-4fa6-a1fd-0d26b287152e` was accepted. Model acknowledgement
+remains a separate pending check. The Mac's in-progress draft was preserved.
+
+Global Codex/Claude instructions were synchronized on Minis, Mac, Maxis and the
+Fedora test VM. Ubuntu did not answer SSH from Minis or Mac; its synchronization
+and MCP setup remain blocked by connectivity. No provider authentication tokens
+were copied between hosts.

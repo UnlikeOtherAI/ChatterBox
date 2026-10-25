@@ -22,10 +22,11 @@ import { runMcp } from "./mcp.js";
 import { discoverOwningClaude } from "./identity.js";
 import { boardHelp } from "./help.js";
 import { schemas } from "./types.js";
+import { runHost } from "./host.js";
 
 const help = `ChatterBox 0.1.0 — coordination for existing coding sessions
 
-chatterbox help [--topic quickstart|coordinator|worker|delivery|setup|architecture]
+chatterbox help [--topic quickstart|coordinator|worker|delivery|setup|architecture|hosts]
 chatterbox init --project NAME [--workspace NAME]
 chatterbox serve [--host 127.0.0.1] [--port 4318] [--cert FILE --key FILE]
 chatterbox mcp --provider codex|claude-code --alias NAME --native-session UUID
@@ -36,6 +37,7 @@ chatterbox grant --project NAME --url https://board.example --out FILE
 chatterbox revoke --credential KEY_ID
 chatterbox credentials
 chatterbox backup --out FILE
+chatterbox host --host-config FILE
 chatterbox discover [--seconds 5]
 chatterbox discover --provider claude-code [--executable PATH]
 
@@ -72,6 +74,7 @@ export async function runCli(args = process.argv.slice(2)) {
         "seconds",
         "mdns-name",
         "mdns-host",
+        "host-config",
       ].map((k) => [k, { type: "string" as const }]),
     );
   options.help = { type: "boolean" };
@@ -104,6 +107,15 @@ export async function runCli(args = process.argv.slice(2)) {
     console.log(
       `Ready: ${c.workspace_id}/${c.project_id}\nDatabase: ${databasePath()}\nConnection: ${opt("config", configPath())}`,
     );
+    return;
+  }
+  if (command === "host") {
+    if (!opt("host-config"))
+      throw new Error("Provide a private --host-config file");
+    const abort = new AbortController();
+    process.once("SIGINT", () => abort.abort());
+    process.once("SIGTERM", () => abort.abort());
+    await runHost(opt("host-config"), abort.signal);
     return;
   }
   if (command === "serve") {
@@ -152,11 +164,15 @@ export async function runCli(args = process.argv.slice(2)) {
         ? process.env.CODEX_THREAD_ID
         : (process.env.CLAUDE_CODE_SESSION_ID ?? process.env.CLAUDE_SESSION_ID),
     );
-    if (!nativeId && provider === "claude-code") {
+    if (provider === "claude-code") {
       const owner = await discoverOwningClaude().catch(() => undefined);
       if (owner) {
+        if (nativeId && nativeId !== owner.nativeId)
+          throw new Error(
+            "Configured native identity does not match the owning Claude process",
+          );
         nativeId = owner.nativeId;
-        executable = owner.executable;
+        if (!opt("executable")) executable = owner.executable;
       }
     }
     if (!nativeId)

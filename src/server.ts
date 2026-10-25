@@ -118,11 +118,15 @@ export async function serve(
           "register",
           "report",
           "embed",
+          "host_register",
+          "start_session",
+          "report_launch",
+          "claim_launch",
         ].includes(method)
       ) {
         const recipients = new Set(
-          ["send", "broadcast"].includes(method)
-            ? (result as { recipients: string[] }).recipients
+          ["send", "broadcast", "claim_launch"].includes(method)
+            ? ((result as { recipients?: string[] }).recipients ?? [])
             : [],
         );
         for (const client of clients) {

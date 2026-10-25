@@ -1,3 +1,8 @@
+import {
+  initializeLifecycle,
+  lifecycleCall,
+  lifecycleMethods,
+} from "./lifecycle.js";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import {
   createHash,
@@ -28,6 +33,8 @@ const reading = new Set<Method>([
   "sessions",
   "messages",
   "deliveries",
+  "hosts",
+  "launches",
   "thread",
   "search",
   "audit",
@@ -37,6 +44,10 @@ const machineMethods = new Set<Method>([
   "claim",
   "report",
   "heartbeat",
+  "host_register",
+  "host_heartbeat",
+  "claim_launch",
+  "report_launch",
 ]);
 const knownQueue = (v: string) =>
   /^codex-cli 0\.(157\.1|158\.0(?:-alpha.*)?)$/.test(v);
@@ -118,6 +129,7 @@ export class Board {
       "SELECT value FROM meta WHERE key=?",
       "cursor_secret",
     )!.value;
+    initializeLifecycle(this);
   }
   close() {
     this.db.close();
@@ -141,6 +153,50 @@ export class Board {
       this.db.exec("ROLLBACK");
       throw error;
     }
+  }
+  notifyLaunchFailure(
+    p: Principal,
+    hostId: string,
+    parent: string,
+    launchId: string,
+  ) {
+    const service = this.one<{ agent_session_id: string }>(
+      "SELECT agent_session_id FROM sessions WHERE workspace_id=? AND project_id=? AND owner_id=? AND provider='other' AND runtime_id='host-service' AND native_session_id=?",
+      p.workspace_id,
+      p.project_id,
+      p.id,
+      `host:${hostId}`,
+    );
+    if (!service)
+      fail(409, "Host service identity must be registered before enrollment");
+    const messageId = uid("msg"),
+      taskBoard = this.defaultBoard(p);
+    const body = `Launch ${launchId} on host ${hostId} failed before native creation: coordinator authorization expired, was revoked, or no longer permits the provider/repository. No native process was launched.`;
+    this.run(
+      "INSERT INTO messages(message_id,workspace_id,project_id,thread_id,from_session_id,kind,body,created_at,body_hash,board_id) VALUES (?,?,?,?,?,'blocker',?,?,?,?)",
+      messageId,
+      p.workspace_id,
+      p.project_id,
+      `launch:${launchId}`,
+      service.agent_session_id,
+      body,
+      this.now(),
+      digest(body),
+      taskBoard.board_id,
+    );
+    this.run(
+      "INSERT INTO deliveries(message_id,to_session_id,state,updated_at) VALUES (?,?,'accepted_by_board',?)",
+      messageId,
+      parent,
+      this.now(),
+    );
+    this.event(
+      p,
+      "session_launch_failure_notified",
+      { recipients: [parent], launch_id: launchId },
+      messageId,
+    );
+    return messageId;
   }
   issue(
     scope: Pick<Principal, "workspace_id" | "project_id" | "machine_id">,
@@ -285,7 +341,7 @@ export class Board {
       return fail(400, "Cursor does not match this scope or query");
     }
   }
-  private sequencePage<T extends { seq: number }>(
+  sequencePage<T extends { seq: number }>(
     p: Principal,
     query: unknown,
     from: string,
@@ -399,6 +455,8 @@ export class Board {
     input: unknown,
     machineToken?: string,
   ): unknown {
+    if (lifecycleMethods.has(method))
+      return lifecycleCall(this, p, method, input);
     const scope = [p.workspace_id, p.project_id];
     if (method === "boards") {
       const { cursor, limit, ...a } = schemas.boards.parse(input);

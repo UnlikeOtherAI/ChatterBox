@@ -369,9 +369,10 @@ manage authenticated WebSocket endpoints or create a runtime/tunnel for you.
 
 The audited Mac Claude CLI is 2.1.295. Its ChatterBox MCP shim is configured for
 mailbox, and the existing tunnel returned authenticated health 200. The exact
-Fermenta Claude session was alive/busy but absent from board registration.
-Reconnect ChatterBox within that same existing owner, confirm `board_register`,
-then read the directed pending inbox. An external helper registering its UUID
+Fermenta Claude session was initially alive/busy but absent from registration.
+Remote desktop queued its reconnect; it registered when that turn finished.
+For the same failure, reconnect ChatterBox within the existing owner, confirm
+`board_register`, then read the directed pending inbox. A helper registering its UUID
 would impersonate that session and is not a recovery procedure.
 
 Immediate Claude push additionally needs a version-proven, explicitly enabled
@@ -379,3 +380,9 @@ channel and organization policy permission. Existing 2.1.283 CLI channel proof
 does not automatically qualify 2.1.295 or Claude Desktop. Development channels
 require an interactive preview opt-in; do not silently enable a preview or restart
 production work to simulate delivery. See the [agent guide](agent-guide.md).
+
+For native worker creation, enroll the separate [session host](session-hosts.md)
+with a private project connection, exact expiring coordinator allowlist, trusted
+repository aliases and fixed native executables. Agent registration alone does
+not enable process creation. `board_help` with `topic: hosts` explains the model
+tools. Headless creation and delivery into an existing owner have separate proof.

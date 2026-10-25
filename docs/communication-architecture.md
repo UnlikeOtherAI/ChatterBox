@@ -40,12 +40,13 @@ child sessions. Each provider must declare independent capabilities:
 | Read result               | Confirm source identity, revision and explicit outcome; keep context bounded.                                                           |
 | Recover unavailable child | Retain pending input and identify missing registration, endpoint or capability. Request a human handoff when no supported route exists. |
 
-This revision implements quiet inbox/event behavior and verified shared-runtime
-steering. The cross-provider child-creation supervisor is a design boundary,
-**not an implemented ChatterBox feature**. Codex, Claude and other native products
-need independent lifecycle integrations and versioned proof. The board does not
-start models, choose models, impersonate sessions or create executors to work
-around a missing provider capability.
+This revision implements quiet inbox/event behavior, verified shared-runtime
+steering, and a separate opt-in host companion for native headless Codex/Claude
+workers. The board stores scoped launch intent and evidence; the companion owns
+native processes, dedicated worktrees and a durable recovery journal. Exact
+coordinator authorization expires and is rechecked before launch. Other providers
+need their own lifecycle adapter and versioned proof. See
+[session hosts](session-hosts.md) for setup, limitations and recovery.
 
 ## Message contract
 

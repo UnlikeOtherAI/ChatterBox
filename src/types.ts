@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { lifecycleSchemas } from "./lifecycle.js";
 
 export const name = z.string().trim().min(1).max(160);
 export const id = z.string().min(1).max(200);
@@ -49,6 +50,7 @@ const send = {
     .optional(),
 };
 export const schemas = {
+  ...lifecycleSchemas,
   boards: z
     .object({ ...page, query: z.string().trim().max(512).default("") })
     .strict(),
@@ -255,15 +257,4 @@ export type Delivery = {
   acknowledgement: string | null;
   to_alias?: string;
 };
-export class BoardError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-    public details?: unknown,
-  ) {
-    super(message);
-  }
-}
-export function fail(status: number, message: string): never {
-  throw new BoardError(status, message);
-}
+export { BoardError, fail } from "./errors.js";

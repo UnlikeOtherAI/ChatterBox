@@ -1030,3 +1030,79 @@ test("directed SSE wakes recipients and viewers, excludes sibling chatter, and r
     f.board.close();
   }
 });
+
+test("delivery inspection stays scoped, omits bodies, and binds cursors across broadcast recipients", () => {
+  const f = fixture();
+  try {
+    const sibling = f.register(f.bMachine, "delivery-sibling");
+    for (let n = 0; n < 6; n++)
+      f.send(undefined, undefined, `Recipient body ${n}`);
+    f.board.call(f.a.principal, "broadcast", {
+      body: "Broadcast body",
+      thread_id: "inspection",
+      idempotency_key: key(),
+    });
+    type Page = {
+      deliveries: {
+        seq: number;
+        message_id: string;
+        session_id: string;
+        body?: string;
+      }[];
+      cursor: string | null;
+    };
+    let cursor: string | undefined;
+    const rows: Page["deliveries"] = [];
+    do {
+      const page = f.board.call(f.b.principal, "deliveries", {
+        limit: 2,
+        ...(cursor ? { cursor } : {}),
+      }) as Page;
+      rows.push(...page.deliveries);
+      cursor = page.cursor ?? undefined;
+    } while (cursor);
+    assert.equal(rows.length, 7);
+    assert.equal(new Set(rows.map((row) => row.seq)).size, 7);
+    assert.ok(
+      rows.every(
+        (row) => row.session_id === f.b.session_id && row.body === undefined,
+      ),
+    );
+    const project = f.board.call(f.a.principal, "deliveries", {
+      scope: "project",
+    }) as Page;
+    assert.equal(project.deliveries.length, 8);
+    assert.ok(
+      project.deliveries.some((row) => row.session_id === sibling.session_id),
+    );
+    const first = f.board.call(f.b.principal, "deliveries", {
+      limit: 2,
+    }) as Page;
+    failure(
+      () =>
+        f.board.call(f.b.principal, "deliveries", {
+          scope: "project",
+          cursor: first.cursor,
+        }),
+      400,
+    );
+    failure(
+      () =>
+        f.board.call(f.b.principal, "deliveries", {
+          session_id: sibling.session_id,
+        }),
+      403,
+    );
+    const other = f.machine("different-project");
+    assert.equal(
+      (
+        f.board.call(other.principal, "deliveries", {
+          scope: "project",
+        }) as Page
+      ).deliveries.length,
+      0,
+    );
+  } finally {
+    f.board.close();
+  }
+});

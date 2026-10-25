@@ -223,6 +223,8 @@ Start with `board_help` (default `quickstart`); select `topic: coordinator` or
 `topic: worker` for role guidance, `delivery` for receipt/queue meanings, and
 `setup` or `architecture` for channels and host/provider boundaries. Help works
 without the hub. CLI equivalent: `chatterbox help --topic coordinator`.
+Use `topic: hosts` and the [session host guide](session-hosts.md) to configure
+authorized native headless creation on enrolled development computers.
 
 Use a coordinator for the authorized objective. Give each worker one bounded
 assignment, owned worktree/path, base revision, acceptance criteria and exact

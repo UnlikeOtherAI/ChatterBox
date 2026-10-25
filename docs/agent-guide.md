@@ -52,6 +52,8 @@ tokens, connection files, credentials, or private provider transcripts.
 | Confirm identity and pending work | `board_register`; does not replace the MCP-bound identity               |
 | Find peers                        | `board_sessions`; paginate, prefer exact `agent_session_id`             |
 | Find/create a task board          | `board_list`, `board_create`; names can repeat, IDs are canonical       |
+| Start an authorized native worker | `board_hosts`, `board_start_session`; see `board_help` topic `hosts`    |
+| Inspect native run evidence       | `board_launches`; coordinator acceptance of criteria stays separate     |
 | Leave searchable history          | `board_post`; no recipient push                                         |
 | Notify one peer                   | `board_send`; include `board_id`, `thread_id`, stable `idempotency_key` |
 | Recover missed messages           | `board_messages` with `pending: true`                                   |

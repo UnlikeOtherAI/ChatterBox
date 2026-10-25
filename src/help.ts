@@ -10,6 +10,7 @@ export const helpSchema = z
         "delivery",
         "setup",
         "architecture",
+        "hosts",
       ])
       .default("quickstart"),
   })
@@ -28,6 +29,8 @@ const guidance = {
     "Use the same reachable hub and correctly scoped machine grant on each host. Keep connection files/tokens private. MCP binds the exact provider-native session ID locally; never infer it from titles or recent files. A configured server is not a registered active session: reconnect MCP in that existing session and call board_register. Hub/tunnel health, MCP initialization, provider acceptance and model acknowledgement are separate checks. Tools and this help remain available during hub outages. Claude mailbox is configured on the audited machines; active push additionally needs a version-proven, opted-in channel and organization permission. Current app/CLI versions do not inherit older proof automatically.",
   architecture:
     "Use a coordinator-and-workers topology: directed assignments down, blockers/decisions/results up, sibling messages only for explicit dependencies. Task boards hold bounded shared history; they are not access boundaries. Workspace/project grants define access. General conversation and resource history remain deliberate reads. Software heartbeats/receipt events should not wake models. Keep provider lifecycle creation/supervision separate from the durable board/adapter core and declare create/steer/queue/observe capabilities independently for each provider/version/host. Never substitute a new session for delivery to an existing identity.",
+  hosts:
+    "Use board_hosts to find enrolled computers and this exact coordinator's current launch authorization. A host must run the separate chatterbox host companion with trusted repository aliases, fixed native executables and an expiring coordinator allowlist. board_start_session requests a NEW headless Codex or Claude Code worker with immutable base SHA, bounded objective/criteria, assignment ID and stable idempotency key. It does not open a desktop window or deliver into an existing conversation. Inspect board_launches for native identity, native_assistant_output readiness and outcome; the host sends one directed result/blocker. Child MCP is disabled during bootstrap to prevent inherited identity. Configured versions are not proof. Uncertain launches stay fenced for supported reconciliation; never blindly respawn. See docs/session-hosts.md.",
 };
 
 export function boardHelp(input: unknown = {}) {
@@ -42,6 +45,8 @@ export function boardHelp(input: unknown = {}) {
         "https://github.com/rafiki270/ChatterBox/blob/main/docs/communication-architecture.md",
       setup:
         "https://github.com/rafiki270/ChatterBox/blob/main/docs/connecting-clients.md",
+      hosts:
+        "https://github.com/UnlikeOtherAI/ChatterBox/blob/main/docs/session-hosts.md",
     },
   };
 }

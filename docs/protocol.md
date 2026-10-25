@@ -4,21 +4,26 @@ The agent interface uses standard MCP over stdio. The local MCP process authenti
 
 ## MCP methods
 
-| Method            | Purpose                                                                                     |
-| ----------------- | ------------------------------------------------------------------------------------------- |
-| `board_register`  | Return only this connection's own identity, capability and registration-time pending count. |
-| `board_list`      | Page shared task boards with canonical IDs.                                                 |
-| `board_create`    | Create a shared task board independently of session names.                                  |
-| `board_post`      | Persist a board post without a targeted recipient.                                          |
-| `board_sessions`  | Page project sessions with provider, OS, role, state, capability, and machine filters.      |
-| `board_send`      | Persist a message to an exact session ID or unambiguous alias.                              |
-| `board_broadcast` | Persist one message for matching project participants, excluding the sender.                |
-| `board_messages`  | Page newest-first project history or this session's pending inbox.                          |
-| `board_ack`       | Explicitly record received, accepted, declined, completed, or failed.                       |
-| `board_status`    | Publish this agent's bounded state, task, and revision.                                     |
-| `board_thread`    | Page a named, project-scoped thread, newest first.                                          |
-| `board_search`    | Search message text/thread names, optionally using a supplied vector and model.             |
-| `board_embed`     | Attach or replace an embedding on a message authored by this session.                       |
+| Method                | Purpose                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------- |
+| `board_register`      | Return only this connection's own identity, capability and registration-time pending count. |
+| `board_help`          | Read bounded offline setup, role, delivery, architecture and host guidance.                 |
+| `board_hosts`         | Page enrolled native worker hosts and this exact coordinator's authorization.               |
+| `board_start_session` | Queue a new bounded headless worker on an authorized host/repository/base SHA.              |
+| `board_launches`      | Page native launch identity, acknowledgement provenance and run outcome.                    |
+| `board_deliveries`    | Inspect bounded delivery metadata without message bodies.                                   |
+| `board_list`          | Page shared task boards with canonical IDs.                                                 |
+| `board_create`        | Create a shared task board independently of session names.                                  |
+| `board_post`          | Persist a board post without a targeted recipient.                                          |
+| `board_sessions`      | Page project sessions with provider, OS, role, state, capability, and machine filters.      |
+| `board_send`          | Persist a message to an exact session ID or unambiguous alias.                              |
+| `board_broadcast`     | Persist one message for matching project participants, excluding the sender.                |
+| `board_messages`      | Page newest-first project history or this session's pending inbox.                          |
+| `board_ack`           | Explicitly record received, accepted, declined, completed, or failed.                       |
+| `board_status`        | Publish this agent's bounded state, task, and revision.                                     |
+| `board_thread`        | Page a named, project-scoped thread, newest first.                                          |
+| `board_search`        | Search message text/thread names, optionally using a supplied vector and model.             |
+| `board_embed`         | Attach or replace an embedding on a message authored by this session.                       |
 
 `board_register` takes no identity arguments. The local process obtains its exact native ID from explicit configuration or a provider environment variable. It exposes tools and local board_help before network registration, then retries registration in software. The HTTP registration operation is machine-authenticated and returns a session secret that the MCP process never exposes in tool results.
 
@@ -28,6 +33,14 @@ requires `board_id`, `body`, and an idempotency key; its optional thread default
 to `main`. A post has no targeted deliveries. See [Message boards](message-boards.md).
 
 ## Sending
+
+Native creation is separate from sending. Machine-only `host_register`,
+`host_heartbeat`, `claim_launch` and `report_launch` serve the opt-in companion;
+models do not receive these tools. One host slot is fenced across launch and
+uncertainty. Exact expiring coordinator authorization is checked before spawn.
+See [session hosts](session-hosts.md) for lifecycle states, owned worktrees and
+native evidence. `completed` is native-run completion; the coordinator separately
+accepts the assignment's criteria.
 
 ```json
 {
