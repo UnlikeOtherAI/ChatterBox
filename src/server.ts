@@ -120,15 +120,41 @@ export async function serve(
           "embed",
         ].includes(method)
       ) {
-        for (const client of clients)
+        const recipients = new Set(
+          ["send", "broadcast"].includes(method)
+            ? (result as { recipients: string[] }).recipients
+            : [],
+        );
+        for (const client of clients) {
           if (
-            client.principal.workspace_id === p.workspace_id &&
-            client.principal.project_id === p.project_id
-          ) {
-            if (client.response.writableLength > 65536)
-              client.response.destroy();
-            else client.response.write("data: changed\n\n");
+            client.principal.workspace_id !== p.workspace_id ||
+            client.principal.project_id !== p.project_id
+          )
+            continue;
+          try {
+            board.authenticate(client.token);
+          } catch {
+            client.response.end();
+            clients.delete(client);
+            continue;
           }
+          const targeted =
+            client.principal.role === "session"
+              ? recipients.has(client.principal.session_id!)
+              : client.principal.role === "machine" &&
+                [...recipients].some((id) =>
+                  board.one(
+                    "SELECT 1 FROM sessions WHERE agent_session_id=? AND owner_id=?",
+                    id,
+                    client.principal.id,
+                  ),
+                );
+          // Viewer dashboards observe the project. Recipient adapters wake only
+          // for directed input, never for peer status, history or report echoes.
+          if (client.principal.role !== "viewer" && !targeted) continue;
+          if (client.response.writableLength > 65536) client.response.destroy();
+          else client.response.write("data: changed\n\n");
+        }
       }
     } catch (error) {
       if (res.headersSent) {

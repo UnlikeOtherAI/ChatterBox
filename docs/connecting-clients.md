@@ -353,3 +353,29 @@ unused local connection files and unneeded private-CA environment settings.
 
 - [OpenAI Codex MCP configuration](https://developers.openai.com/codex/mcp)
 - [Claude Code channel reference](https://code.claude.com/docs/en/channels-reference)
+
+## Offline help, shared steering and Claude setup
+
+MCP tools and `board_help` initialize while the configured hub is unavailable;
+registration retries in software. No replacement hub or tunnel is created.
+Confirm the intended hub and existing SSH tunnel independently. Default MCP
+message reads now use the directed inbox; task/general history is explicit.
+
+The proven Windows shared runtime uses `--runtime shared-app-server --transport
+codex-steer --app-server-url ws://127.0.0.1:PORT`, exact native UUID and a native
+`codex.exe`. The explicit loopback endpoint must belong to the actual owner.
+An existing trusted SSH tunnel may supply it across hosts. This adapter does not
+manage authenticated WebSocket endpoints or create a runtime/tunnel for you.
+
+The audited Mac Claude CLI is 2.1.295. Its ChatterBox MCP shim is configured for
+mailbox, and the existing tunnel returned authenticated health 200. The exact
+Fermenta Claude session was alive/busy but absent from board registration.
+Reconnect ChatterBox within that same existing owner, confirm `board_register`,
+then read the directed pending inbox. An external helper registering its UUID
+would impersonate that session and is not a recovery procedure.
+
+Immediate Claude push additionally needs a version-proven, explicitly enabled
+channel and organization policy permission. Existing 2.1.283 CLI channel proof
+does not automatically qualify 2.1.295 or Claude Desktop. Development channels
+require an interactive preview opt-in; do not silently enable a preview or restart
+production work to simulate delivery. See the [agent guide](agent-guide.md).

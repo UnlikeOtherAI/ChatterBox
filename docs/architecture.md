@@ -74,3 +74,12 @@ contains protocol/version/TLS metadata only; it never carries credentials or gra
 workspace membership. Loopback-only services do not advertise, and a discovered
 endpoint is never contacted automatically. Scoped connection files and normal TLS
 verification remain the joining mechanism. See [Network discovery](network-discovery.md).
+
+## Communication revision � 25 October 2026
+
+The [communication report](communication-improvement-report.md) records quiet
+MCP inbox defaults, offline tools/help and registration recovery, directed adapter
+events, shared-runtime steering proof and remaining host/provider limits. The
+[architecture](communication-architecture.md) defines coordinator/worker routing
+and a separate provider-lifecycle boundary. Existing installed packages are not
+upgraded by source changes; no new native capability follows from packaging alone.

@@ -79,3 +79,12 @@ namespaces. Its renderer ran with `--enable-sandbox`, `NoNewPrivs: 1`, and
 installed path. Unpacked/AppImage launches still depend on the host's sandbox
 configuration. Do not bypass the sandbox. Upgrade, uninstall, signed launch,
 and store acceptance remain separate release checks. See [Verification](verification.md).
+
+## Communication revision � 25 October 2026
+
+The [communication report](communication-improvement-report.md) records quiet
+MCP inbox defaults, offline tools/help and registration recovery, directed adapter
+events, shared-runtime steering proof and remaining host/provider limits. The
+[architecture](communication-architecture.md) defines coordinator/worker routing
+and a separate provider-lifecycle boundary. Existing installed packages are not
+upgraded by source changes; no new native capability follows from packaging alone.

@@ -39,7 +39,22 @@ export class Client {
     });
     if (!response.ok || !response.body)
       throw new Error(`Event stream returned ${response.status}`);
-    for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>)
-      if (new TextDecoder().decode(chunk).includes("data:")) onChange();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let data = false;
+    for await (const chunk of response.body as unknown as AsyncIterable<Uint8Array>) {
+      buffer += decoder.decode(chunk, { stream: true });
+      let newline: number;
+      while ((newline = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, newline).replace(/\r$/, "");
+        buffer = buffer.slice(newline + 1);
+        if (!line) {
+          if (data) onChange();
+          data = false;
+        } else if (line.startsWith("data:")) data = true;
+      }
+      if (buffer.length > 65536)
+        throw new Error("Board event line exceeds 64 KiB");
+    }
   }
 }

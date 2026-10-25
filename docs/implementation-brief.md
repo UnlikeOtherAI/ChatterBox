@@ -30,3 +30,12 @@ Enabling it hides the window and Dock/taskbar entry, closing hides the window,
 and the tray offers Show and Quit. Relaunch into the saved mode. Quitting stops
 services started by the app. Keep desktop preferences separate from connection
 credentials and the read-only board IPC. See [Desktop](desktop.md).
+
+## Communication revision � 25 October 2026
+
+The [communication report](communication-improvement-report.md) records quiet
+MCP inbox defaults, offline tools/help and registration recovery, directed adapter
+events, shared-runtime steering proof and remaining host/provider limits. The
+[architecture](communication-architecture.md) defines coordinator/worker routing
+and a separate provider-lifecycle boundary. Existing installed packages are not
+upgraded by source changes; no new native capability follows from packaging alone.

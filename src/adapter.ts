@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { Board } from "./store.js";
 import { Client } from "./client.js";
+import { DeliveryError, type NativeReceipt } from "./codex-steer.js";
 import type { Message } from "./types.js";
 const exec = promisify(execFile);
 export type Claimed = Message & {
@@ -30,14 +31,17 @@ export class Adapter {
   private controller = new AbortController();
   private timer?: ReturnType<typeof setInterval>;
   private draining = false;
+  private wakePending = false;
   private stopped = false;
   private stream?: Promise<void>;
   constructor(
     private client: Client,
     private spool: Board,
     private sessionId: string,
-    private transport: "codex-queue" | "claude-channel" | "mailbox",
-    private deliver: (message: Claimed) => Promise<void>,
+    private transport:
+      "codex-queue" | "claude-channel" | "mailbox" | "codex-steer",
+    private deliver: (message: Claimed) => Promise<void | NativeReceipt>,
+    private eventsClient = client,
   ) {}
   start() {
     this.timer = setInterval(() => {
@@ -56,7 +60,7 @@ export class Adapter {
   private async watch() {
     while (!this.stopped) {
       try {
-        await this.client.events(this.controller.signal, () => {
+        await this.eventsClient.events(this.controller.signal, () => {
           void this.tick();
         });
       } catch (error) {
@@ -73,7 +77,12 @@ export class Adapter {
     }
   }
   async tick() {
-    if (this.draining || this.stopped) return;
+    if (this.stopped) return;
+    if (this.draining) {
+      this.wakePending = true;
+      return;
+    }
+    this.wakePending = false;
     this.draining = true;
     let hasMore = false;
     try {
@@ -100,12 +109,18 @@ export class Adapter {
             this.sessionId,
             m.message_id,
           );
-          const result =
+          let result =
             this.transport === "codex-queue"
               ? "queued_with_provider"
               : "notification_sent";
-          if (previous?.state === "queued_with_provider") {
-            await report(result, "Recovered durable local transport receipt");
+          if (
+            previous?.state === "queued_with_provider" ||
+            previous?.state === "steer_accepted"
+          ) {
+            await report(
+              previous.state,
+              "Recovered durable local transport receipt",
+            );
             continue;
           }
           this.spool.run(
@@ -119,7 +134,8 @@ export class Adapter {
           );
           await report("stored_on_recipient");
           await report("delivery_attempted");
-          await this.deliver(m);
+          const receipt = await this.deliver(m);
+          if (receipt) result = receipt.state;
           this.spool.run(
             "UPDATE spool SET state=?,updated_at=? WHERE board_url=? AND session_id=? AND message_id=?",
             result,
@@ -130,7 +146,8 @@ export class Adapter {
           );
           await report(
             result,
-            "Provider transport accepted input; agent acknowledgement pending",
+            receipt?.detail ??
+              "Provider transport accepted input; agent acknowledgement pending",
           );
         } catch (error) {
           // Provider errors may contain prompts or private paths. Keep a bounded diagnostic locally.
@@ -143,7 +160,9 @@ export class Adapter {
           try {
             await report(
               "retry_wait",
-              "Transport failed or timed out; retry scheduled",
+              error instanceof DeliveryError
+                ? error.message
+                : "Transport failed or timed out; retry scheduled",
             );
           } catch {
             /* A lost lease is recovered by the next adapter connection. */
@@ -158,7 +177,7 @@ export class Adapter {
         );
     } finally {
       this.draining = false;
-      if (hasMore && !this.stopped)
+      if ((hasMore || this.wakePending) && !this.stopped)
         setImmediate(() => {
           void this.tick();
         });

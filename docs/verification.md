@@ -273,3 +273,12 @@ provider/native-session capabilities. The earlier Codex/Claude proof matrix
 remains the limit of those claims. Store and Homebrew publication, signing,
 notarization, upgrade/uninstall, and production Claude channel approval
 are pending release gates, not completed features.
+
+## Communication revision � 25 October 2026
+
+The [communication report](communication-improvement-report.md) records quiet
+MCP inbox defaults, offline tools/help and registration recovery, directed adapter
+events, shared-runtime steering proof and remaining host/provider limits. The
+[architecture](communication-architecture.md) defines coordinator/worker routing
+and a separate provider-lifecycle boundary. Existing installed packages are not
+upgraded by source changes; no new native capability follows from packaging alone.

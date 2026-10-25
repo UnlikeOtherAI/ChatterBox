@@ -73,7 +73,7 @@ export const schemas = {
       repository: z.string().max(1024).default(""),
       role: name.default("developer"),
       transport: z
-        .enum(["mailbox", "codex-queue", "claude-channel"])
+        .enum(["mailbox", "codex-queue", "claude-channel", "codex-steer"])
         .default("mailbox"),
     })
     .strict(),
@@ -95,6 +95,14 @@ export const schemas = {
       provider: name.optional(),
       os: name.optional(),
       role: name.optional(),
+    })
+    .strict(),
+  deliveries: z
+    .object({
+      ...page,
+      scope: z.enum(["self", "project"]).default("self"),
+      pending: z.boolean().default(true),
+      session_id: id.optional(),
     })
     .strict(),
   messages: z
@@ -162,6 +170,7 @@ export const schemas = {
         "delivery_attempted",
         "queued_with_provider",
         "notification_sent",
+        "steer_accepted",
         "retry_wait",
       ]),
       detail: z.string().max(1000).default(""),

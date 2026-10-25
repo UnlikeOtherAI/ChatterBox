@@ -19,14 +19,17 @@ import {
 import { Discovery } from "./discovery.js";
 import { setTimeout as delay } from "node:timers/promises";
 import { runMcp } from "./mcp.js";
+import { boardHelp } from "./help.js";
 import { schemas } from "./types.js";
 
 const help = `ChatterBox 0.1.0 — coordination for existing coding sessions
 
+chatterbox help [--topic quickstart|coordinator|worker|delivery|setup|architecture]
 chatterbox init --project NAME [--workspace NAME]
 chatterbox serve [--host 127.0.0.1] [--port 4318] [--cert FILE --key FILE]
 chatterbox mcp --provider codex|claude-code --alias NAME --native-session UUID
-  [--runtime cli|desktop] [--transport mailbox|codex-queue|claude-channel]
+  [--runtime cli|desktop|shared-app-server] [--transport mailbox|codex-queue|claude-channel|codex-steer]
+  [--app-server-url ws://127.0.0.1:PORT] (codex-steer only)
   [--executable /path/to/provider] [--config FILE] [--repository PATH] [--role NAME]
 chatterbox grant --project NAME --url https://board.example --out FILE
 chatterbox revoke --credential KEY_ID
@@ -44,6 +47,7 @@ export async function runCli(args = process.argv.slice(2)) {
   const options: Record<string, { type: "string" | "boolean" }> =
     Object.fromEntries(
       [
+        "topic",
         "project",
         "workspace",
         "host",
@@ -56,6 +60,7 @@ export async function runCli(args = process.argv.slice(2)) {
         "runtime",
         "transport",
         "executable",
+        "app-server-url",
         "config",
         "repository",
         "role",
@@ -80,6 +85,12 @@ export async function runCli(args = process.argv.slice(2)) {
   const command = positionals[0];
   if (!command || v.help) {
     console.log(help);
+    return;
+  }
+  if (command === "help") {
+    console.log(
+      JSON.stringify(boardHelp({ topic: opt("topic", "quickstart") }), null, 2),
+    );
     return;
   }
   if (command === "init") {
@@ -168,6 +179,7 @@ export async function runCli(args = process.argv.slice(2)) {
       readConfig(opt("config", configPath())),
       registration,
       executable,
+      opt("app-server-url") || undefined,
     );
     return;
   }
