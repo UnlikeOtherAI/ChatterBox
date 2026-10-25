@@ -19,6 +19,7 @@ import {
 import { Discovery } from "./discovery.js";
 import { setTimeout as delay } from "node:timers/promises";
 import { runMcp } from "./mcp.js";
+import { discoverOwningClaude } from "./identity.js";
 import { boardHelp } from "./help.js";
 import { schemas } from "./types.js";
 
@@ -56,6 +57,7 @@ export async function runCli(args = process.argv.slice(2)) {
         "key",
         "provider",
         "alias",
+        "alias-prefix",
         "native-session",
         "runtime",
         "transport",
@@ -140,16 +142,23 @@ export async function runCli(args = process.argv.slice(2)) {
   }
   if (command === "mcp") {
     const provider = opt("provider");
-    const executable = opt(
+    let executable = opt(
       "executable",
       provider === "claude-code" ? "claude" : "codex",
     );
-    const nativeId = opt(
+    let nativeId = opt(
       "native-session",
       provider === "codex"
         ? process.env.CODEX_THREAD_ID
-        : process.env.CLAUDE_SESSION_ID,
+        : (process.env.CLAUDE_CODE_SESSION_ID ?? process.env.CLAUDE_SESSION_ID),
     );
+    if (!nativeId && provider === "claude-code") {
+      const owner = await discoverOwningClaude().catch(() => undefined);
+      if (owner) {
+        nativeId = owner.nativeId;
+        executable = owner.executable;
+      }
+    }
     if (!nativeId)
       throw new Error(
         "Provide --native-session or a provider-supplied session environment variable",
@@ -166,7 +175,10 @@ export async function runCli(args = process.argv.slice(2)) {
     }
     const registration = schemas.register.parse({
       native_session_id: nativeId,
-      alias: opt("alias", `${provider}-${nativeId.slice(0, 8)}`),
+      alias: opt(
+        "alias",
+        `${opt("alias-prefix", provider)}-${nativeId.slice(0, 8)}`,
+      ),
       provider,
       provider_version: version,
       runtime_id: opt("runtime", "cli"),
