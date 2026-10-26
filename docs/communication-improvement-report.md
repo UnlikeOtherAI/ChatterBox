@@ -146,10 +146,12 @@ No stuck item is deleted to clear the dashboard.
 The full 41 compiled backend/MCP tests passed on Maxis at `13db89f`, after checking
 host load and shared reservations. Minis passed lint and the focused lifecycle
 checks, including native Git worktrees and path-containment regressions. CI then
-exposed Windows drive-letter casing in the bare-root check. The fix uses platform
-path equality after canonicalization, and the regression explicitly varies drive
-casing. The focused checks passed again on Minis. Final CI remains the release
-gate. No native steering capability is inferred from portable tests.
+exposed Windows drive-letter casing and 8.3 temporary-directory aliases in the
+bare-root check. Native filesystem canonicalization expands the aliases before
+platform path comparison. The regression explicitly varies drive casing; all
+twelve lifecycle checks also passed on Minis with `TEMP` set to a real 8.3 path.
+Final CI remains the release gate. No native steering capability is inferred
+from portable tests.
 
 The deployed hub uses source runtime `ac75eb3` independently of the desktop app,
 with the existing SQLite database backed up first. The verified snapshot contained

@@ -374,12 +374,13 @@ const execute = promisify(execFile);
 export async function prepareWorktree(repository: string, job: Launch) {
   if (!isAbsolute(repository))
     throw new Error("Approved repository must have an absolute path");
-  const root = realpathSync(repository);
+  // Native canonicalization also expands Windows 8.3 names used by CI temp paths.
+  const root = realpathSync.native(repository);
   const bare =
     (
       await execute("git", ["-C", root, "rev-parse", "--is-bare-repository"])
     ).stdout.trim() === "true";
-  const top = realpathSync(
+  const top = realpathSync.native(
     (
       await execute("git", [
         "-C",
@@ -400,11 +401,11 @@ export async function prepareWorktree(repository: string, job: Launch) {
     throw new Error("Base must be an exact available immutable commit");
   const directory = join(root, ".worktrees", "chatterbox-host");
   mkdirSync(directory, { recursive: true });
-  if (!inside(root, realpathSync(directory)))
+  if (!inside(root, realpathSync.native(directory)))
     throw new Error("Host worktree directory escapes approved repository");
   if (!/^launch_[a-f0-9-]{36}$/i.test(job.launch_id))
     throw new Error("Invalid launch ID");
-  const target = join(realpathSync(directory), job.launch_id);
+  const target = join(realpathSync.native(directory), job.launch_id);
   await execute(
     "git",
     [

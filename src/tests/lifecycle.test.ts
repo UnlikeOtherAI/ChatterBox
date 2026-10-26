@@ -647,7 +647,10 @@ test("an approved bare repository creates an isolated worker worktree at its exa
       drive.toLowerCase(),
     );
     const worktree = await prepareWorktree(approved, job);
-    assert.equal(inside(realpathSync(directory), realpathSync(worktree)), true);
+    assert.equal(
+      inside(realpathSync.native(directory), realpathSync.native(worktree)),
+      true,
+    );
     assert.equal(
       execFileSync("git", ["-C", worktree, "rev-parse", "HEAD"], {
         encoding: "utf8",
