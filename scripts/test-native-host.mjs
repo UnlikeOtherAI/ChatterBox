@@ -3,8 +3,17 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+  realpathSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
+import { homedir } from "node:os";
+import { DatabaseSync } from "node:sqlite";
+import { createHash } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { Board } from "../dist/store.js";
 import { serve } from "../dist/server.js";
@@ -18,6 +27,16 @@ const providers = [
     executable: process.env.CHATTERBOX_CLAUDE_EXECUTABLE,
   },
 ].filter((p) => p.executable);
+const selection = process.env.CHATTERBOX_HOST_EVAL_MODEL
+  ? {
+      model: process.env.CHATTERBOX_HOST_EVAL_MODEL,
+      reasoning_effort: process.env.CHATTERBOX_HOST_EVAL_REASONING ?? "low",
+    }
+  : {};
+if (selection.model && providers.some((p) => p.provider !== "codex"))
+  throw Error(
+    "Explicit-model transcript verification currently requires a Codex-only eval",
+  );
 if (!providers.length)
   throw Error(
     "Set CHATTERBOX_CODEX_EXECUTABLE and/or CHATTERBOX_CLAUDE_EXECUTABLE to native binaries. This eval creates a new disposable headless worker for each selected provider.",
@@ -69,7 +88,22 @@ writeFileSync(
     name: `eval-${process.platform}`,
     connection,
     state_directory: join(directory, "state"),
-    coordinators: [coordinator.session_id],
+    coordinators: selection.model ? [] : [coordinator.session_id],
+    coordinator_grants: selection.model
+      ? [
+          {
+            coordinator: coordinator.session_id,
+            repositories: ["owned"],
+            providers: [
+              {
+                provider: "codex",
+                models: [selection.model],
+                reasoning_efforts: [selection.reasoning_effort],
+              },
+            ],
+          },
+        ]
+      : [],
     authorization_expires_at: Date.now() + 3600000,
     repositories: { owned: repository },
     providers,
@@ -102,6 +136,7 @@ try {
       provider: p.provider,
       mode: "headless",
       repository: "owned",
+      ...selection,
       base_sha: base,
       assignment_id: `native-host-${p.provider}`,
       objective: `This is a bounded communication eval. Do not edit files, run tools, create other sessions or perform product work. After the required readiness line, continue the same response with a line containing exactly ${marker}. Do not end the turn after readiness.`,
@@ -148,6 +183,72 @@ try {
       1,
       "Exactly one directed coordinator result",
     );
+    let observed = {};
+    if (selection.model) {
+      const providerState = new DatabaseSync(
+        join(
+          process.env.CODEX_HOME ?? join(homedir(), ".codex"),
+          "state_5.sqlite",
+        ),
+        { readOnly: true },
+      );
+      let rollout;
+      try {
+        rollout = providerState
+          .prepare("SELECT rollout_path FROM threads WHERE id=?")
+          .get(result.native_session_id)?.rollout_path;
+      } finally {
+        providerState.close();
+      }
+      assert.ok(
+        rollout,
+        "The exact native UUID must identify its own persisted transcript",
+      );
+      const transcript = readFileSync(rollout, "utf8");
+      const records = transcript
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+      const metadata = records.find((v) => v.type === "session_meta")?.payload;
+      assert.equal(metadata?.id, result.native_session_id);
+      const journal = new DatabaseSync(
+        join(directory, "state/host-journal.db"),
+        { readOnly: true },
+      );
+      let worktree;
+      try {
+        worktree = journal
+          .prepare("SELECT worktree FROM attempts WHERE launch_id=?")
+          .get(result.launch_id)?.worktree;
+      } finally {
+        journal.close();
+      }
+      assert.equal(
+        realpathSync.native(metadata.cwd),
+        realpathSync.native(worktree),
+      );
+      const contexts = records
+        .filter((v) => v.type === "turn_context")
+        .map((v) => v.payload);
+      assert.ok(
+        contexts.length > 0,
+        "Observed model proof requires a real native turn context",
+      );
+      for (const context of contexts) {
+        assert.equal(context.model, selection.model);
+        assert.equal(context.effort, selection.reasoning_effort);
+      }
+      observed = {
+        requested_model: selection.model,
+        requested_reasoning_effort: selection.reasoning_effort,
+        observed_model: contexts[0].model,
+        observed_reasoning_effort: contexts[0].effort,
+        model_proof_source: "exact_native_transcript_turn_context",
+        transcript_sha256: createHash("sha256")
+          .update(transcript)
+          .digest("hex"),
+      };
+    }
     evidence.push({
       provider: p.provider,
       os: process.platform,
@@ -161,6 +262,7 @@ try {
       result: result.result,
       elapsed_ms: Date.now() - started,
       base_sha: base,
+      ...observed,
     });
     writeFileSync(
       join(directory, "evidence.json"),

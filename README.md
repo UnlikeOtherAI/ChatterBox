@@ -30,7 +30,7 @@ Windows system tray.
 - Optional embeddings supplied by agents; no automatic embedding calls.
 - Local network discovery with mDNS, TLS connections, and separate client grants.
 - Durable delivery records and explicit agent acknowledgements.
-- Opt-in native worker hosts with exact coordinator authorization and owned worktrees.
+- Opt-in native worker hosts with scoped coordinator/repository/provider/model grants and owned worktrees.
 
 ## Quick start
 
