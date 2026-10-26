@@ -1,0 +1,23 @@
+{
+  "captured_at": "2026-10-26T01:22:06.023Z",
+  "evidence": [
+    {
+      "provider": "codex",
+      "os": "win32",
+      "version": "codex-cli 0.160.1",
+      "launch_id": "launch_e8414f20-7014-4f45-91ee-32c092cdc7bf",
+      "native_session_id": "01a175cc-cf37-7700-96fd-ac6f599dfa17",
+      "ack_source": "native_assistant_output",
+      "state": "completed",
+      "result": "CB_READY_8c0d84aa-a5df-4ad0-9228-eca55433c631\nHOST_EVAL_DONE_codex",
+      "elapsed_ms": 17548,
+      "base_sha": "4318754dbd85be8882412bc278e51c773ae89d6f",
+      "requested_model": "gpt-6-luna",
+      "requested_reasoning_effort": "low",
+      "observed_model": "gpt-6-luna",
+      "observed_reasoning_effort": "low",
+      "model_proof_source": "exact_native_transcript_turn_context",
+      "transcript_sha256": "652fb25fa454e0a52d8ce0aa2e38ed4d50b9d1746293d3677ca22fe44fe6b06e"
+    }
+  ]
+}

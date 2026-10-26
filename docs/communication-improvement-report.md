@@ -154,7 +154,7 @@ GitHub Verify passed on Windows, macOS and Ubuntu at `764db3a`, including lint,
 41 backend/MCP tests, the existing Playwright flows, directory packaging and
 packaged smoke checks. No native steering capability is inferred from those tests.
 
-The deployed hub uses source runtime `ac75eb3` independently of the desktop app,
+The supervised hub initially used source runtime `ac75eb3` independently of the desktop app,
 with the existing SQLite database backed up first. The verified snapshot contained
 3,630 messages and 935 deliveries. Its SHA-256 is
 `2B034DA16F9E37B85B8BDB466EFF613478F257009343B5C7AD05A0CE7C302355`.
@@ -164,12 +164,14 @@ authenticated HTTP 200. Whole-machine reboot, logoff and parent-process recovery
 were not exercised. No desktop installer or signed release was produced.
 
 The Mac LaunchAgent and Minis/Maxis user tasks run the separate host companion
-from source runtime `764db3a`, including native Windows path canonicalization.
+from source runtime `4318754`, including scoped model policy and native Windows
+path canonicalization. The hub and MCP shims also use `4318754`.
 Maxis also has a supervised SSH tunnel to the Minis hub. All three reported online
 with trusted `ChatterBox` and `Fermenta` repository aliases. Launch authority is
-currently restricted to this setup chat's exact canonical session and expires
-within seven days. A different coordinator needs its own explicit enrollment;
-ordinary session registration grants no launch authority.
+restricted to explicitly enrolled canonical sessions and expires within seven
+days. The setup chat retains its existing legacy grants. The new Fermenta master
+has a separate Maxis-only grant described below; ordinary registration grants no
+launch authority.
 
 The [deployment evidence](evidence/native-host-deployment-2026-10-26.json) records
 successful native Codex and Claude runs on Mac and Maxis, including native IDs,
@@ -210,3 +212,38 @@ SSH login reported success but wrote the file fallback while a stale Keychain
 record still shadowed it. Repeating native login in the GUI LaunchAgent context
 resolved the observed failure, and the next headless worker completed. No saved
 credential was removed and no existing Claude conversation was terminated.
+
+## Scoped model policy follow-up — 26 October 2026
+
+The research coordinator required an exact Fermenta/Codex/Luna grant, rather than
+the initial host-wide defaults. Source `4318754` adds `coordinator_grants` and
+immutable request `model`/`reasoning_effort`, checked by the board at request,
+claim and pre-spawn and by the separate host. Nonempty effort lists require an
+explicit matching value. Legacy grants and omitted-field retry fingerprints stay
+compatible. `policy_version: 1` fences explicit-model work from older companions.
+
+Astra identified the old-companion fallback and old-report fingerprint risks;
+both have focused regressions and its final review found no remaining blocker.
+All **47** backend/MCP tests passed on Maxis, and GitHub Verify passed Windows,
+macOS and Ubuntu at `4318754`, including existing UI/package checks.
+
+Real native runs used `gpt-6-luna` with `low` reasoning on
+[Maxis 0.160.1](evidence/native-host-luna-maxis-2026-10-26.json) and
+[Mac 0.159.2](evidence/native-host-luna-mac-2026-10-26.json). Both completed with
+assistant readiness and final markers. The eval matched each exact native UUID
+and owned worktree, then checked the actual transcript's `turn_context` model and
+effort. Requested arguments alone were not accepted as model proof.
+
+The retained-data hub migration was preceded by a consistent snapshot containing
+3,699 messages and 989 deliveries, SHA-256
+`5B97080C9CB64260A35AFA7BEE963241972615DD12132363A234790D1C476A27`.
+Authenticated health returned 200 after the upgrade, all hosts reported policy
+version 1, and the existing data remained present.
+
+The Fermenta master `ses_8f7b3b06-e55b-4566-8451-34358468fb08` is authorized only
+on Maxis for `Fermenta` / `codex` / `gpt-6-luna` / `low`, expiring
+2 November 2026 at 00:07 UTC. It has no legacy-default, ChatterBox or Claude grant.
+Existing other coordinator grants were preserved. Mac has matching native proof
+but no grant for that master until a platform-specific assignment is needed.
+No research or vinegar job was started by this setup task. Existing desktop push
+and genuine-owner inbox checkpoint requirements remain unchanged.
