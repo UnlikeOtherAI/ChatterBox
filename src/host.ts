@@ -389,7 +389,7 @@ export async function prepareWorktree(repository: string, job: Launch) {
       ])
     ).stdout.trim(),
   );
-  if (top !== root)
+  if (relative(root, top) !== "")
     throw new Error(
       "Approved repository must be its exact Git worktree or bare repository root",
     );
