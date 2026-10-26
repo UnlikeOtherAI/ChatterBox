@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, realpathSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -18,9 +18,9 @@ import {
 } from "../host.js";
 import { Client } from "../client.js";
 
-function fixture() {
+function fixture(path = ":memory:") {
   let now = Date.now();
-  const board = new Board(":memory:", () => now);
+  const board = new Board(path, () => now);
   const machine = (project = "app") => {
     const token = board.issue(
       { workspace_id: "test", project_id: project, machine_id: randomUUID() },
@@ -61,6 +61,7 @@ function fixture() {
     repositories: ["project"],
     coordinators: [coordinator.session_id],
     authorization_expires_at: now + 3600000,
+    policy_version: 1,
     idempotency_key: randomUUID(),
   };
   const enroll = (overrides: Record<string, unknown> = {}) => {
@@ -100,7 +101,7 @@ function fixture() {
     }) as { launch_id: string };
   const claim = (p = owner.principal) =>
     (
-      board.call(p, "claim_launch", { host_id: hostId }) as {
+      board.call(p, "claim_launch", { host_id: hostId, policy_version: 1 }) as {
         launches: Launch[];
       }
     ).launches;
@@ -109,6 +110,7 @@ function fixture() {
       host_id: hostId,
       launch_id: job.launch_id,
       lease_id: job.lease_id,
+      policy_version: 1,
       state,
       idempotency_key: randomUUID(),
       ...extra,
@@ -118,10 +120,12 @@ function fixture() {
     owner,
     other,
     outsider,
+    register,
     coordinator,
     worker,
     hostId,
     enroll,
+    enrollment,
     request,
     claim,
     report,
@@ -168,6 +172,307 @@ test("only the exact authorized coordinator can create a bounded native launch",
     assert.equal(f.claim().length, 0);
   } finally {
     f.board.close();
+  }
+});
+
+test("scoped coordinators need their exact repository, provider, model and reasoning grant", () => {
+  const f = fixture();
+  const grant = {
+    coordinator: f.worker.session_id,
+    repositories: ["project"],
+    providers: [
+      { provider: "codex", models: ["gpt-6-luna"], reasoning_efforts: ["low"] },
+    ],
+  };
+  try {
+    f.enroll({ coordinator_grants: [grant] });
+    for (const selection of [
+      {},
+      { model: "gpt-6-luna" },
+      { model: "gpt-6-sol" },
+      { model: "gpt-6-luna", repository: "other" },
+      { model: "gpt-6-luna", provider: "claude-code" },
+      { model: "gpt-6-luna", reasoning_effort: "high" },
+    ])
+      rejected(() => f.request(f.worker.principal, selection), 403);
+    // Existing broad grants retain defaults, but cannot gain arbitrary model overrides.
+    rejected(() => f.request(undefined, { model: "gpt-6-luna" }), 403);
+    assert.throws(() =>
+      f.request(f.worker.principal, { reasoning_effort: "low" }),
+    );
+    assert.throws(() =>
+      f.request(f.worker.principal, { model: "--approval-bypass" }),
+    );
+    const hosts = f.board.call(f.worker.principal, "hosts", {}) as {
+      hosts: {
+        launch_authorized: boolean;
+        provider_defaults_authorized: boolean;
+        launch_grants: unknown[];
+      }[];
+    };
+    assert.equal(hosts.hosts[0]!.launch_authorized, true);
+    assert.equal(hosts.hosts[0]!.provider_defaults_authorized, false);
+    assert.deepEqual(hosts.hosts[0]!.launch_grants, [
+      { repositories: grant.repositories, providers: grant.providers },
+    ]);
+    const requested = f.request(f.worker.principal, {
+      model: "gpt-6-luna",
+      reasoning_effort: "low",
+    });
+    const job = f.claim()[0]!;
+    assert.equal(job.launch_id, requested.launch_id);
+    assert.equal(job.model, "gpt-6-luna");
+    assert.equal(job.reasoning_effort, "low");
+    const metadata = f.board.call(f.worker.principal, "launches", {}) as {
+      launches: Launch[];
+    };
+    assert.equal(metadata.launches[0]!.model, "gpt-6-luna");
+    f.enroll({ coordinator_grants: [] });
+    rejected(() => f.report(job, "launching"), 403);
+  } finally {
+    f.board.close();
+  }
+});
+
+test("grant narrowing fences queued launches and rejects unavailable policy references", () => {
+  const f = fixture();
+  const grant = {
+    coordinator: f.worker.session_id,
+    repositories: ["project"],
+    providers: [
+      { provider: "codex", models: ["gpt-6-luna"], reasoning_efforts: ["low"] },
+    ],
+  };
+  try {
+    rejected(
+      () =>
+        f.enroll({
+          coordinator_grants: [{ ...grant, repositories: ["unavailable"] }],
+        }),
+      400,
+    );
+    rejected(
+      () =>
+        f.enroll({
+          coordinator_grants: [
+            {
+              ...grant,
+              providers: [{ provider: "claude-code", models: ["sonnet"] }],
+            },
+          ],
+        }),
+      400,
+    );
+    rejected(
+      () =>
+        f.enroll({
+          coordinator_grants: [
+            { ...grant, coordinator: f.register(f.outsider).session_id },
+          ],
+        }),
+      400,
+    );
+    f.enroll({ coordinator_grants: [grant] });
+    const requested = f.request(f.worker.principal, {
+      model: "gpt-6-luna",
+      reasoning_effort: "low",
+    });
+    f.enroll({
+      coordinator_grants: [
+        {
+          ...grant,
+          providers: [{ ...grant.providers[0], reasoning_efforts: [] }],
+        },
+      ],
+    });
+    assert.deepEqual(f.claim(), []);
+    const failed = f.board.one<Launch>(
+      "SELECT * FROM lifecycle_launches WHERE launch_id=?",
+      requested.launch_id,
+    )!;
+    assert.equal(failed.state, "failed");
+    assert.equal(failed.native_session_id, null);
+  } finally {
+    f.board.close();
+  }
+});
+
+test("native model arguments preserve explicit choices without changing default launches", () => {
+  const args = providerArguments("codex", "/owned", randomUUID(), {
+    model: "gpt-6-luna",
+    reasoning_effort: "low",
+  });
+  assert.equal(args[args.indexOf("--model") + 1], "gpt-6-luna");
+  assert.ok(args.includes('model_reasoning_effort="low"'));
+  assert.equal(args.at(-1), "-");
+  assert.equal(
+    providerArguments("codex", "/owned", randomUUID()).includes("--model"),
+    false,
+  );
+  assert.ok(
+    providerArguments("claude-code", "/owned", randomUUID(), {
+      model: "sonnet",
+    }).includes("sonnet"),
+  );
+  assert.throws(() =>
+    providerArguments("claude-code", "/owned", randomUUID(), {
+      model: "sonnet",
+      reasoning_effort: "low",
+    }),
+  );
+  assert.throws(() =>
+    providerArguments("codex", "/owned", randomUUID(), {
+      model: "--other-flag",
+    }),
+  );
+});
+
+test("old companions cannot accept or start explicit model launches during an upgrade", () => {
+  const f = fixture();
+  const grant = {
+    coordinator: f.coordinator.session_id,
+    repositories: ["project"],
+    providers: [
+      { provider: "codex", models: ["gpt-6-luna"], reasoning_efforts: ["low"] },
+    ],
+  };
+  try {
+    f.enroll({ policy_version: 0, coordinator_grants: [grant] });
+    rejected(
+      () =>
+        f.request(undefined, { model: "gpt-6-luna", reasoning_effort: "low" }),
+      409,
+    );
+    f.enroll({ policy_version: 1, coordinator_grants: [grant] });
+    const requested = f.request(undefined, {
+      model: "gpt-6-luna",
+      reasoning_effort: "low",
+    });
+    rejected(
+      () =>
+        f.board.call(f.owner.principal, "claim_launch", { host_id: f.hostId }),
+      409,
+    );
+    assert.equal(
+      f.board.one<Launch>(
+        "SELECT * FROM lifecycle_launches WHERE launch_id=?",
+        requested.launch_id,
+      )!.state,
+      "queued",
+    );
+    const job = f.claim()[0]!;
+    rejected(() => f.report(job, "launching", { policy_version: 0 }), 409);
+    f.enroll({ policy_version: 0, coordinator_grants: [grant] });
+    rejected(() => f.report(job, "launching"), 403);
+    f.enroll({ policy_version: 1, coordinator_grants: [grant] });
+    f.report(job, "launching");
+  } finally {
+    f.board.close();
+  }
+});
+
+test("policy migration preserves legacy grants and already claimed native intent", () => {
+  const path = join(
+    mkdtempSync(join(tmpdir(), "chatterbox-policy-migration-")),
+    "board.db",
+  );
+  const f = fixture(path);
+  f.request();
+  const job = f.claim()[0]!;
+  f.board.db.exec(
+    "ALTER TABLE lifecycle_hosts DROP COLUMN coordinator_grants; ALTER TABLE lifecycle_hosts DROP COLUMN policy_version; ALTER TABLE lifecycle_launches DROP COLUMN model; ALTER TABLE lifecycle_launches DROP COLUMN reasoning_effort",
+  );
+  f.board.close();
+  const reopened = new Board(path);
+  try {
+    const preserved = reopened.one<Launch>(
+      "SELECT * FROM lifecycle_launches WHERE launch_id=?",
+      job.launch_id,
+    )!;
+    assert.equal(preserved.state, "claimed");
+    assert.equal(preserved.lease_id, job.lease_id);
+    assert.equal(preserved.model, null);
+    assert.equal(preserved.reasoning_effort, null);
+    const host = reopened.one<{
+      coordinators: string;
+      coordinator_grants: string;
+    }>("SELECT * FROM lifecycle_hosts WHERE host_id=?", f.hostId)!;
+    assert.deepEqual(JSON.parse(host.coordinators), [f.coordinator.session_id]);
+    assert.equal(host.coordinator_grants, "[]");
+  } finally {
+    reopened.close();
+  }
+});
+
+test("pre-upgrade terminal reports and enrollments replay with their original fingerprints", () => {
+  const path = join(
+    mkdtempSync(join(tmpdir(), "chatterbox-policy-replay-")),
+    "board.db",
+  );
+  const f = fixture(path);
+  f.request();
+  const job = f.claim()[0]!;
+  // These are the normalized wire shapes accepted before scoped model policy.
+  const report = {
+    host_id: f.hostId,
+    launch_id: job.launch_id,
+    lease_id: job.lease_id,
+    state: "failed",
+    result: "Retained native failure",
+    detail: "No model receipt",
+    idempotency_key: randomUUID(),
+  };
+  const enrollment = {
+    host_id: f.hostId,
+    name: "Maxis",
+    os: "win32",
+    providers: [
+      {
+        provider: "codex",
+        version: "codex-cli 0.159.2",
+        mode: "headless",
+        proof: "unverified",
+      },
+    ],
+    repositories: ["project"],
+    coordinators: [f.coordinator.session_id],
+    authorization_expires_at: f.enrollment.authorization_expires_at,
+    idempotency_key: randomUUID(),
+  };
+  const reportResult = f.board.call(f.owner.principal, "report_launch", report);
+  const enrollmentResult = f.board.call(
+    f.owner.principal,
+    "host_register",
+    enrollment,
+  );
+  for (const payload of [report, enrollment]) {
+    const stored = f.board.one<{ fingerprint: string }>(
+      "SELECT fingerprint FROM requests WHERE principal_id=? AND key=?",
+      f.owner.principal.id,
+      payload.idempotency_key,
+    )!;
+    assert.equal(
+      stored.fingerprint,
+      createHash("sha256").update(JSON.stringify(payload)).digest("hex"),
+    );
+  }
+  f.board.db.exec(
+    "ALTER TABLE lifecycle_hosts DROP COLUMN coordinator_grants; ALTER TABLE lifecycle_hosts DROP COLUMN policy_version; ALTER TABLE lifecycle_launches DROP COLUMN model; ALTER TABLE lifecycle_launches DROP COLUMN reasoning_effort",
+  );
+  f.board.close();
+  const upgraded = new Board(path);
+  try {
+    // A lost-response retry must return the committed receipt, not dispatch the terminal transition again.
+    assert.deepEqual(
+      upgraded.call(f.owner.principal, "report_launch", report),
+      reportResult,
+    );
+    assert.deepEqual(
+      upgraded.call(f.owner.principal, "host_register", enrollment),
+      enrollmentResult,
+    );
+  } finally {
+    upgraded.close();
   }
 });
 

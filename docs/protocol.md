@@ -38,6 +38,13 @@ Native creation is separate from sending. Machine-only `host_register`,
 `host_heartbeat`, `claim_launch` and `report_launch` serve the opt-in companion;
 models do not receive these tools. One host slot is fenced across launch and
 uncertainty. Exact expiring coordinator authorization is checked before spawn.
+`coordinator_grants` binds exact session IDs to repository aliases, providers,
+model names and reasoning efforts. `start_session` accepts optional `model` and
+Codex `reasoning_effort`; every explicit selection must match one grant. Omitted
+model requires a legacy broad coordinator grant. `hosts` exposes only the caller's
+`launch_grants`, `provider_defaults_authorized` and the host's `policy_version`.
+Explicit-model claim and pre-spawn messages require version 1. Requested settings
+in `launches` are separate from observed native transcript proof.
 See [session hosts](session-hosts.md) for lifecycle states, owned worktrees and
 native evidence. `completed` is native-run completion; the coordinator separately
 accepts the assignment's criteria.

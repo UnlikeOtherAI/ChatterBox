@@ -68,6 +68,14 @@ coordinator needs findings: an ack alone is not a reply.
 
 ## Noise and context limits
 
+New-worker authority is an exact coordinator/repository/provider/model grant.
+Nonempty effort allowlists require an explicit matching effort; an empty list
+permits native default effort only. Legacy broad grants retain defaults. The
+board rechecks the immutable selection at claim and before spawn, and the host
+uses the same local predicate. Companion capability gates prevent older code
+from discarding model fields during an upgrade. These settings never alter the
+model of an existing chat.
+
 MCP registration returns only the caller's identity/capability and concise
 guidance. Peer discovery, boards and message bodies require explicit reads.
 Unscoped MCP `board_messages` selects the caller's pending inbox. Paged MCP calls

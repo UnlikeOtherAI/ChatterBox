@@ -18,6 +18,14 @@ import { Client } from "./client.js";
 import { readConfig } from "./config.js";
 import type { Launch } from "./lifecycle.js";
 import { BoardError } from "./errors.js";
+import {
+  coordinatorPolicy,
+  permitsLaunch,
+  hostModel,
+  reasoningEffort,
+  type LaunchSelection,
+  validGrantReferences,
+} from "./host-policy.js";
 
 const providerName = z.enum(["codex", "claude-code"]);
 export const hostConfigSchema = z
@@ -26,7 +34,7 @@ export const hostConfigSchema = z
     name: z.string().min(1).max(120),
     connection: z.string().min(1),
     state_directory: z.string().min(1),
-    coordinators: z.array(z.string().min(1)).min(1).max(16),
+    ...coordinatorPolicy,
     authorization_expires_at: z.number().int().positive(),
     repositories: z.record(z.string().min(1).max(120), z.string().min(1)),
     providers: z
@@ -42,7 +50,20 @@ export const hostConfigSchema = z
       .min(1)
       .max(2),
   })
-  .strict();
+  .strict()
+  .refine(
+    (v) => v.coordinators.length + v.coordinator_grants.length > 0,
+    "At least one coordinator grant is required",
+  )
+  .refine(
+    (v) =>
+      validGrantReferences(
+        v,
+        Object.keys(v.repositories),
+        v.providers.map((p) => p.provider),
+      ),
+    "Coordinator grants must reference configured repositories and providers",
+  );
 export type HostConfig = z.infer<typeof hostConfigSchema>;
 
 /** Child identities must come from their own native output, never this process. */
@@ -71,7 +92,14 @@ export function providerArguments(
   provider: "codex" | "claude-code",
   worktree: string,
   nativeId: string,
+  selection: Pick<LaunchSelection, "model" | "reasoning_effort"> = {},
 ) {
+  const model = selection.model ? hostModel.parse(selection.model) : undefined;
+  const effort = selection.reasoning_effort
+    ? reasoningEffort.parse(selection.reasoning_effort)
+    : undefined;
+  if (effort && (provider !== "codex" || !model))
+    throw new Error("Reasoning effort requires an explicit Codex model");
   return provider === "codex"
     ? [
         "exec",
@@ -82,6 +110,8 @@ export function providerArguments(
         worktree,
         "-c",
         "mcp_servers.chatterbox.enabled=false",
+        ...(model ? ["--model", model] : []),
+        ...(effort ? ["-c", `model_reasoning_effort="${effort}"`] : []),
         "-",
       ]
     : [
@@ -94,6 +124,7 @@ export function providerArguments(
         "--strict-mcp-config",
         "--mcp-config",
         '{"mcpServers":{}}',
+        ...(model ? ["--model", model] : []),
       ];
 }
 
@@ -203,6 +234,7 @@ export class HostJournal {
   }
   enqueue(job: Launch, state: string, extra: Record<string, unknown> = {}) {
     const payload = {
+      policy_version: 1,
       host_id: job.host_id,
       launch_id: job.launch_id,
       lease_id: job.lease_id,
@@ -222,7 +254,7 @@ export class HostJournal {
           to: job.parent_session_id,
           thread_id: `launch:${job.launch_id}`,
           kind: state === "completed" ? "result" : "blocker",
-          body: `Host ${job.host_id}; assignment ${job.assignment_id}; launch ${job.launch_id}: native run ${state}. ${state === "completed" ? "Coordinator must verify the assignment criteria." : ""}\nNative identity: ${extra.native_session_id ?? "unconfirmed"}.\n${extra.detail ?? ""}\n${extra.result ?? ""}`.slice(
+          body: `Host ${job.host_id}; assignment ${job.assignment_id}; launch ${job.launch_id}: native run ${state}. ${state === "completed" ? "Coordinator must verify the assignment criteria." : ""}\nNative identity: ${extra.native_session_id ?? "unconfirmed"}.\nRequested model: ${job.model ?? "provider default"}; reasoning effort: ${job.reasoning_effort ?? "provider default"} (native arguments, not a model receipt).\n${extra.detail ?? ""}\n${extra.result ?? ""}`.slice(
             0,
             6000,
           ),
@@ -467,7 +499,7 @@ export async function launchWorker(
 ) {
   journal.attempt(job);
   if (
-    !config.coordinators.includes(job.parent_session_id) ||
+    !permitsLaunch(config, job.parent_session_id, job) ||
     config.authorization_expires_at <= Date.now()
   )
     throw new Error(
@@ -489,7 +521,7 @@ export async function launchWorker(
   const expected = randomUUID();
   const child = spawn(
     provider.executable,
-    providerArguments(job.provider, worktree, expected),
+    providerArguments(job.provider, worktree, expected, job),
     {
       cwd: worktree,
       env: workerEnvironment(process.env),
@@ -691,6 +723,8 @@ export async function runHost(
       providers,
       repositories: Object.keys(config.repositories),
       coordinators: config.coordinators,
+      coordinator_grants: config.coordinator_grants,
+      policy_version: 1,
       authorization_expires_at: config.authorization_expires_at,
       idempotency_key: randomUUID(),
     });
@@ -711,7 +745,7 @@ export async function runHost(
         await client.call("heartbeat", { session_id: service.session_id });
         const result = await client.call<{ launches: Launch[] }>(
           "claim_launch",
-          { host_id: config.host_id },
+          { host_id: config.host_id, policy_version: 1 },
         );
         for (const job of result.launches) {
           try {

@@ -282,3 +282,16 @@ events, shared-runtime steering proof and remaining host/provider limits. The
 [architecture](communication-architecture.md) defines coordinator/worker routing
 and a separate provider-lifecycle boundary. Existing installed packages are not
 upgraded by source changes; no new native capability follows from packaging alone.
+
+## Scoped native models — 26 October 2026
+
+Source `4318754` passed 47 backend/MCP tests on Maxis and full Verify CI on
+Windows, macOS and Ubuntu. Scoped policy checks include old-companion fences,
+grant revocation, effort omission and migration/replay of legacy idempotency keys.
+The optional native eval was run once on each target with
+`CHATTERBOX_HOST_EVAL_MODEL=gpt-6-luna` and
+`CHATTERBOX_HOST_EVAL_REASONING=low`, using each machine's own authentication.
+[Maxis evidence](evidence/native-host-luna-maxis-2026-10-26.json) and
+[Mac evidence](evidence/native-host-luna-mac-2026-10-26.json) record real completion,
+exact native identity and observed transcript model/effort. Other explicit models
+and effort values were not evaluated. See [host setup](session-hosts.md).

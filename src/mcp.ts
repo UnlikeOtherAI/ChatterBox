@@ -21,7 +21,7 @@ const descriptions: Partial<Record<Method, string>> = {
   hosts:
     "List enrolled computers, provider versions, repository aliases and this exact coordinator's launch authorization. Creation is explicitly headless; configured capability is not native readiness proof.",
   start_session:
-    "Request a NEW native headless worker on an enrolled host, approved repository and immutable base SHA. Requires explicit host authorization for this exact coordinator session. Supply a bounded assignment, criteria and stable idempotency key. This never delivers into an existing session.",
+    "Request a NEW native headless worker on an enrolled host, approved repository and immutable base SHA. Explicit model and Codex reasoning_effort require this exact coordinator's matching repository/provider/model grant, visible in board_hosts launch_grants. Omitted model uses provider defaults only for a legacy broad grant. Supply a bounded assignment, criteria and stable idempotency key. This never delivers into an existing session.",
   launches:
     "Inspect this coordinator's bounded launch metadata/results. queued, launching, native_created, ready and completed have separate evidence. scope=project explicitly selects project-wide metadata. No native process is created by reading this tool.",
   boards:

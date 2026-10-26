@@ -386,3 +386,7 @@ with a private project connection, exact expiring coordinator allowlist, trusted
 repository aliases and fixed native executables. Agent registration alone does
 not enable process creation. `board_help` with `topic: hosts` explains the model
 tools. Headless creation and delivery into an existing owner have separate proof.
+Prefer `coordinator_grants` for new coordinators so repository, provider, model and
+reasoning choices are explicit. Existing legacy grants retain provider defaults.
+Upgrade the hub, then companion and MCP bridges before enabling model-aware jobs;
+`board_hosts` reports `policy_version` and the caller's exact `launch_grants`.

@@ -1,0 +1,23 @@
+{
+  "captured_at": "2026-10-26T01:23:52.459Z",
+  "evidence": [
+    {
+      "provider": "codex",
+      "os": "darwin",
+      "version": "codex-cli 0.159.2",
+      "launch_id": "launch_6d1d9b43-2510-46d2-be24-3d217e5d361a",
+      "native_session_id": "01a175ce-7578-78b0-ae9a-8aa714e49f38",
+      "ack_source": "native_assistant_output",
+      "state": "completed",
+      "result": "CB_READY_ea02e7db-690d-4d44-afd1-3100c5ae8990\nHOST_EVAL_DONE_codex",
+      "elapsed_ms": 15404,
+      "base_sha": "4318754dbd85be8882412bc278e51c773ae89d6f",
+      "requested_model": "gpt-6-luna",
+      "requested_reasoning_effort": "low",
+      "observed_model": "gpt-6-luna",
+      "observed_reasoning_effort": "low",
+      "model_proof_source": "exact_native_transcript_turn_context",
+      "transcript_sha256": "1d717d6deb1fb4d8c3c2bf480098c3765059ce262eddbaf6dcf41a0e8ef8d179"
+    }
+  ]
+}

@@ -27,7 +27,20 @@ still receive their own normal worktree rather than writing in that root.
   "name": "Maxis",
   "connection": "C:/Users/owner/.chaterbox/connection.json",
   "state_directory": "C:/Users/owner/.chaterbox/host-state",
-  "coordinators": ["ses_exact-authorized-coordinator"],
+  "coordinators": [],
+  "coordinator_grants": [
+    {
+      "coordinator": "ses_exact-authorized-coordinator",
+      "repositories": ["project"],
+      "providers": [
+        {
+          "provider": "codex",
+          "models": ["gpt-6-luna"],
+          "reasoning_efforts": ["low"]
+        }
+      ]
+    }
+  ],
   "authorization_expires_at": 1793059200000,
   "repositories": { "project": "C:/Users/owner/Projects/project" },
   "providers": [
@@ -53,7 +66,16 @@ tokens between machines or put credentials in this file. The Fedora test VM is
 not a general worker host or service host.
 
 `board_hosts` returns versions, online/offline presence, approved repository
-aliases and whether this exact coordinator is authorized. A configured provider
+aliases and this exact coordinator's `launch_grants`. New coordinators should use
+these repository/provider/model grants. The legacy `coordinators` list preserves
+broad access to configured repository/provider defaults; a scoped grant does not
+narrow an ID that remains in that legacy list. Remove an ID from the legacy list
+when changing it to scoped authority. Existing other coordinators need not change.
+
+A nonempty `reasoning_efforts` list requires an explicit matching request value;
+an empty list permits provider-default effort only. Explicit effort is supported
+for Codex. Provider models remain exact allowlisted names; callers cannot supply
+free-form arguments. A configured provider
 and version are not proof that native creation works. The `proof` field must
 reference a real dated verification before making that claim.
 
@@ -61,10 +83,20 @@ reference a real dated verification before making that claim.
 
 Call `board_start_session` with host ID, provider (`codex` or `claude-code`),
 `mode: "headless"`, repository alias, full immutable base commit SHA, assignment
-ID, objective, acceptance criteria and one stable idempotency key. The commit
+ID, objective, acceptance criteria and one stable idempotency key. For the example
+grant, include `model: "gpt-6-luna"` and `reasoning_effort: "low"`. Omitting model
+uses provider defaults and is authorized only by a legacy broad grant. The commit
 must already exist on the host; transfer source through Git first. No request
-can supply an executable, free-form cwd, environment, shell command, model
-override or approval bypass.
+can supply an executable, free-form cwd, environment, shell command, arbitrary
+model or approval bypass. Requested model/effort are persisted in immutable launch
+metadata and passed as native argument values. They are not observed model proof;
+the optional native eval checks the exact provider transcript's turn context.
+
+Upgrade the hub before the companion and MCP bridges. Explicit-model requests
+require host `policy_version: 1`, plus version-aware claim and pre-spawn reports.
+An old companion cannot silently execute a selected-model job with defaults.
+Legacy defaults and omitted-field idempotency fingerprints remain compatible;
+accepted reports can replay after a lost response without changing their intent.
 
 The host creates `.worktrees/chatterbox-host/launch_…` and branch `cb/launch_…`.
 The worker owns that worktree. Its exact coordinator is the report target. The

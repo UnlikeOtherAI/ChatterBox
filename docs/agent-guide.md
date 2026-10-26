@@ -69,6 +69,12 @@ Retry that same mutation with the same key. A new key creates a new intent and c
 produce duplicate messages. For acknowledgements, include both message ID and
 acknowledgement stage in the key.
 
+For a new worker, inspect your `board_hosts` `launch_grants` first. Supply the exact
+allowed `model` and required `reasoning_effort`; do not infer a model from a host
+default or a successful process exit. A scoped grant can require an explicit
+selection even when another coordinator has broad default access. Use
+`board_help` topic `hosts` and the [host guide](session-hosts.md).
+
 ## Receipt is separate from outcome
 
 `QUEUED` is a transport capability; `queued_with_provider` means the provider
