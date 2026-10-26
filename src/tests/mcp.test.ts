@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { randomUUID } from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { Board } from "../store.js";
 import { serve } from "../server.js";
@@ -59,6 +59,7 @@ test("two real stdio MCP connections register, send, search, embed, acknowledge 
           ),
         ),
         CHATTERBOX_HOME: join(dir, alias),
+        CHATTERBOX_MCP_DIAGNOSTICS: "1",
         ...(process.env.CHATTERBOX_TEST_CLI_SCRIPT
           ? { ELECTRON_RUN_AS_NODE: "1" }
           : {}),
@@ -95,6 +96,7 @@ test("two real stdio MCP connections register, send, search, embed, acknowledge 
     const a = await connect("mac-dev");
     const b = await connect("windows-dev");
     const tools = await a.client.listTools();
+    await b.client.listTools();
     assert.ok(tools.tools.some((t) => t.name === "board_search"));
     assert.ok(tools.tools.some((t) => t.name === "board_embed"));
     assert.ok(tools.tools.some((t) => t.name === "board_create"));
@@ -131,6 +133,11 @@ test("two real stdio MCP connections register, send, search, embed, acknowledge 
       "board_register",
     );
     assert.equal(registration.capability, "MAILBOX");
+    assert.ok(
+      !("peers" in registration) &&
+        !("pending" in registration) &&
+        !("boards" in registration),
+    );
     const m = await call<{ message_id: string }>(a.client, "board_send", {
       board_id: taskBoard.board_id,
       to: "windows-dev",
@@ -150,6 +157,33 @@ test("two real stdio MCP connections register, send, search, embed, acknowledge 
       { query: "fulltext wind" },
     );
     assert.equal(found.messages[0]!.message_id, m.message_id);
+    const siblingOnly = await call<{ message_id: string }>(
+      a.client,
+      "board_send",
+      {
+        to: "mac-dev",
+        thread_id: "sibling-only",
+        body: "Private to the other recipient inbox",
+        idempotency_key: randomUUID(),
+      },
+    );
+    const beforeAck = await call<{ messages: { message_id: string }[] }>(
+      b.client,
+      "board_messages",
+    );
+    assert.ok(
+      beforeAck.messages.some((message) => message.message_id === m.message_id),
+    );
+    assert.ok(
+      beforeAck.messages.every(
+        (message) => message.message_id !== siblingOnly.message_id,
+      ),
+    );
+    const queue = await call<{
+      deliveries: { message_id: string; body?: string }[];
+    }>(b.client, "board_deliveries");
+    assert.equal(queue.deliveries[0]!.message_id, m.message_id);
+    assert.equal(queue.deliveries[0]!.body, undefined);
     await call(b.client, "board_ack", {
       message_id: m.message_id,
       acknowledgement: "received",
@@ -161,6 +195,24 @@ test("two real stdio MCP connections register, send, search, embed, acknowledge 
       { pending: true },
     );
     assert.equal(pending.messages.length, 0);
+    const quiet = await call<{ messages: unknown[] }>(
+      b.client,
+      "board_messages",
+    );
+    assert.equal(
+      quiet.messages.length,
+      0,
+      "default inbox must omit shared board posts and acknowledged work",
+    );
+    const history = await call<{ messages: unknown[] }>(
+      b.client,
+      "board_messages",
+      { board_id: taskBoard.board_id },
+    );
+    assert.ok(
+      history.messages.length >= 2,
+      "task history remains explicitly available",
+    );
     await a.client.close();
     const resumed = await connect("mac-dev", a.native);
     const after = await call<{ session_id: string }>(
@@ -168,8 +220,117 @@ test("two real stdio MCP connections register, send, search, embed, acknowledge 
       "board_register",
     );
     assert.equal(after.session_id, registration.session_id);
+    const trace = readFileSync(
+      join(dir, "windows-dev", "mcp-diagnostics.jsonl"),
+      "utf8",
+    );
+    assert.match(trace, /tools_list/);
+    assert.match(trace, /initialized/);
+    assert.ok(
+      !trace.includes("Fulltext SQLite") &&
+        !trace.includes("Shared board note"),
+      "diagnostics must not copy message bodies",
+    );
   } finally {
     for (const { client } of sessions) await client.close();
+    await service.close();
+    board.close();
+    rmSync(dir, {
+      recursive: true,
+      force: true,
+      maxRetries: 30,
+      retryDelay: 100,
+    });
+  }
+});
+
+test("MCP initializes and lists tools while the hub is down, then registers after hub recovery", async () => {
+  mkdirSync(resolve("work"), { recursive: true });
+  const dir = mkdtempSync(resolve("work/mcp-recovery-"));
+  const board = new Board(join(dir, "hub.db"));
+  let service = await serve(board, { port: 0, mdns: false });
+  const port = service.port;
+  await service.close();
+  const scope = {
+    workspace_id: "test",
+    project_id: "recovery",
+    machine_id: randomUUID(),
+  };
+  const config = join(dir, "connection.json");
+  saveConfig(config, {
+    ...scope,
+    board_url: `http://127.0.0.1:${port}`,
+    token: board.issue(scope, "machine"),
+    viewer_token: board.issue(scope, "viewer"),
+  });
+  const transport = new StdioClientTransport({
+    command: process.env.CHATTERBOX_TEST_CLI ?? process.execPath,
+    args: [
+      process.env.CHATTERBOX_TEST_CLI_SCRIPT ??
+        (process.env.CHATTERBOX_TEST_CLI ? "--board-cli" : "dist/cli.js"),
+      "mcp",
+      "--provider",
+      "codex",
+      "--executable",
+      "nonexistent-chatterbox-test-provider",
+      "--native-session",
+      randomUUID(),
+      "--alias",
+      "recovery-test",
+      "--config",
+      config,
+    ],
+    cwd: process.cwd(),
+    env: {
+      ...Object.fromEntries(
+        Object.entries(process.env).filter(
+          (e): e is [string, string] =>
+            e[1] !== undefined && e[0] !== "ELECTRON_RUN_AS_NODE",
+        ),
+      ),
+      CHATTERBOX_HOME: join(dir, "spool"),
+      ...(process.env.CHATTERBOX_TEST_CLI_SCRIPT
+        ? { ELECTRON_RUN_AS_NODE: "1" }
+        : {}),
+    },
+    stderr: "pipe",
+  });
+  transport.stderr?.on("data", () => {});
+  const client = new Client({ name: "offline-startup-test", version: "1" });
+  try {
+    await client.connect(transport, { timeout: 2000 });
+    const tools = await client.listTools({}, { timeout: 2000 });
+    assert.ok(tools.tools.some((t) => t.name === "board_register"));
+    const offlineHelp = await client.callTool({
+      name: "board_help",
+      arguments: { topic: "worker" },
+    });
+    assert.equal(offlineHelp.isError, undefined);
+    assert.match(
+      (offlineHelp.content as { text: string }[])[0]!.text,
+      /Do not read the general feed/,
+    );
+    const down = await client.callTool({
+      name: "board_register",
+      arguments: {},
+    });
+    assert.equal(down.isError, true);
+    assert.match(
+      (down.content as { text: string }[])[0]!.text,
+      /Tools remain available/,
+    );
+    service = await serve(board, { port, mdns: false });
+    const recovered = await client.callTool({
+      name: "board_register",
+      arguments: {},
+    });
+    assert.equal(recovered.isError, undefined, JSON.stringify(recovered));
+    assert.match(
+      (recovered.content as { text: string }[])[0]!.text,
+      /recovery-test/,
+    );
+  } finally {
+    await client.close();
     await service.close();
     board.close();
     rmSync(dir, {

@@ -1,3 +1,8 @@
+import {
+  initializeLifecycle,
+  lifecycleCall,
+  lifecycleMethods,
+} from "./lifecycle.js";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import {
   createHash,
@@ -27,6 +32,9 @@ const reading = new Set<Method>([
   "boards",
   "sessions",
   "messages",
+  "deliveries",
+  "hosts",
+  "launches",
   "thread",
   "search",
   "audit",
@@ -36,9 +44,24 @@ const machineMethods = new Set<Method>([
   "claim",
   "report",
   "heartbeat",
+  "host_register",
+  "host_heartbeat",
+  "claim_launch",
+  "report_launch",
 ]);
 const knownQueue = (v: string) =>
   /^codex-cli 0\.(157\.1|158\.0(?:-alpha.*)?)$/.test(v);
+function capabilityReason(session: Pick<Session, "capability" | "transport">) {
+  if (session.capability === "MAILBOX")
+    return session.transport === "mailbox"
+      ? "Mailbox configured; recipient reads its directed inbox at work checkpoints"
+      : "Requested transport lacks proof for this provider version, runtime and OS; mailbox recovery required";
+  if (session.capability === "CHECKPOINT")
+    return "Explicit shared app-server can accept steering for an exact active turn; idle or unloaded threads stay pending";
+  if (session.capability === "QUEUED")
+    return "Provider queue acceptance is available; active-turn consumption is not guaranteed";
+  return "Opted-in native channel notifications are available; explicit agent acknowledgement is still required";
+}
 export class Board {
   db: DatabaseSync;
   private secret: string;
@@ -106,6 +129,7 @@ export class Board {
       "SELECT value FROM meta WHERE key=?",
       "cursor_secret",
     )!.value;
+    initializeLifecycle(this);
   }
   close() {
     this.db.close();
@@ -129,6 +153,50 @@ export class Board {
       this.db.exec("ROLLBACK");
       throw error;
     }
+  }
+  notifyLaunchFailure(
+    p: Principal,
+    hostId: string,
+    parent: string,
+    launchId: string,
+  ) {
+    const service = this.one<{ agent_session_id: string }>(
+      "SELECT agent_session_id FROM sessions WHERE workspace_id=? AND project_id=? AND owner_id=? AND provider='other' AND runtime_id='host-service' AND native_session_id=?",
+      p.workspace_id,
+      p.project_id,
+      p.id,
+      `host:${hostId}`,
+    );
+    if (!service)
+      fail(409, "Host service identity must be registered before enrollment");
+    const messageId = uid("msg"),
+      taskBoard = this.defaultBoard(p);
+    const body = `Launch ${launchId} on host ${hostId} failed before native creation: coordinator authorization expired, was revoked, or no longer permits the provider/repository. No native process was launched.`;
+    this.run(
+      "INSERT INTO messages(message_id,workspace_id,project_id,thread_id,from_session_id,kind,body,created_at,body_hash,board_id) VALUES (?,?,?,?,?,'blocker',?,?,?,?)",
+      messageId,
+      p.workspace_id,
+      p.project_id,
+      `launch:${launchId}`,
+      service.agent_session_id,
+      body,
+      this.now(),
+      digest(body),
+      taskBoard.board_id,
+    );
+    this.run(
+      "INSERT INTO deliveries(message_id,to_session_id,state,updated_at) VALUES (?,?,'accepted_by_board',?)",
+      messageId,
+      parent,
+      this.now(),
+    );
+    this.event(
+      p,
+      "session_launch_failure_notified",
+      { recipients: [parent], launch_id: launchId },
+      messageId,
+    );
+    return messageId;
   }
   issue(
     scope: Pick<Principal, "workspace_id" | "project_id" | "machine_id">,
@@ -273,7 +341,7 @@ export class Board {
       return fail(400, "Cursor does not match this scope or query");
     }
   }
-  private sequencePage<T extends { seq: number }>(
+  sequencePage<T extends { seq: number }>(
     p: Principal,
     query: unknown,
     from: string,
@@ -387,6 +455,8 @@ export class Board {
     input: unknown,
     machineToken?: string,
   ): unknown {
+    if (lifecycleMethods.has(method))
+      return lifecycleCall(this, p, method, input);
     const scope = [p.workspace_id, p.project_id];
     if (method === "boards") {
       const { cursor, limit, ...a } = schemas.boards.parse(input);
@@ -448,6 +518,14 @@ export class Board {
         a.runtime_id === "cli"
       )
         cap = "LIVE";
+      if (
+        a.transport === "codex-steer" &&
+        a.provider === "codex" &&
+        a.provider_version === "codex-cli 0.159.2" &&
+        a.os === "win32" &&
+        a.runtime_id === "shared-app-server"
+      )
+        cap = "CHECKPOINT";
       this.run(
         `INSERT INTO sessions(agent_session_id,workspace_id,project_id,machine_id,runtime_id,native_session_id,provider,provider_version,alias,os,role,repository,capability,transport,last_seen,owner_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(agent_session_id) DO UPDATE SET alias=excluded.alias,provider_version=excluded.provider_version,role=excluded.role,repository=excluded.repository,capability=excluded.capability,transport=excluded.transport,last_seen=excluded.last_seen`,
         sessionId,
@@ -513,6 +591,7 @@ export class Board {
       return {
         sessions: rows.slice(0, limit).map(({ owner_id: _owner, ...s }) => ({
           ...s,
+          capability_reason: capabilityReason(s),
           connection: observed - s.last_seen < 45000 ? "online" : "offline",
           state: observed - s.state_at < 120000 ? s.state : "unknown",
         })),
@@ -616,6 +695,52 @@ export class Board {
         board_id: board.board_id,
         state: "accepted_by_board",
         recipients: recipients.map((s) => s.agent_session_id),
+        routes: recipients.map((s) => ({
+          session_id: s.agent_session_id,
+          capability: s.capability,
+          connection: this.now() - s.last_seen < 45000 ? "online" : "offline",
+          detail: capabilityReason(s),
+        })),
+      };
+    }
+    if (method === "deliveries") {
+      const { cursor, limit, ...a } = schemas.deliveries.parse(input);
+      if (a.scope === "self" && !p.session_id)
+        fail(
+          400,
+          "Own deliveries require a session credential; use scope=project explicitly",
+        );
+      if (a.scope === "self" && a.session_id && a.session_id !== p.session_id)
+        fail(403, "Use scope=project explicitly to inspect another recipient");
+      let where = "s.workspace_id=? AND s.project_id=?";
+      const params: SQLInputValue[] = [...scope];
+      const recipient = a.scope === "self" ? p.session_id : a.session_id;
+      if (recipient) {
+        where += " AND d.to_session_id=?";
+        params.push(recipient);
+      }
+      if (a.pending) where += " AND d.acknowledgement IS NULL";
+      const source = `(SELECT d.rowid AS seq,d.message_id,d.to_session_id AS session_id,d.state,d.acknowledgement,d.attempts,d.detail,d.updated_at,s.alias,s.native_session_id,s.provider,s.os,s.runtime_id,s.capability,s.transport FROM deliveries d JOIN sessions s ON s.agent_session_id=d.to_session_id WHERE ${where})`;
+      const totals = this.all(
+        `SELECT state,capability,count(*) AS count FROM ${source} GROUP BY state,capability`,
+        ...params,
+      );
+      const result = this.sequencePage(
+        p,
+        ["deliveries", a],
+        `${source} WHERE 1=1`,
+        params,
+        limit,
+        cursor,
+      );
+      const { items, ...paging } = result;
+      return {
+        deliveries: items,
+        summary: totals,
+        ...paging,
+        observed_at: this.now(),
+        limitation:
+          "Board transport states only; native provider queues require their own supported inspection path. Pending does not mean an active steerable turn.",
       };
     }
     if (method === "messages" || method === "thread") {
@@ -729,7 +854,7 @@ export class Board {
       const s = this.own(p, a.session_id);
       if (s.capability === "MAILBOX") return { deliveries: [] };
       const pending = this.all<Delivery>(
-        "SELECT * FROM deliveries WHERE to_session_id=? AND acknowledgement IS NULL AND state<>'queued_with_provider' AND lease_until<=? AND next_attempt<=? ORDER BY updated_at,message_id LIMIT 1",
+        "SELECT * FROM deliveries WHERE to_session_id=? AND acknowledgement IS NULL AND state NOT IN ('queued_with_provider','steer_accepted') AND lease_until<=? AND next_attempt<=? ORDER BY updated_at,message_id LIMIT 1",
         a.session_id,
         this.now(),
         this.now(),
@@ -777,7 +902,13 @@ export class Board {
         fail(400, "Only a Codex queue adapter can report queue acceptance");
       if (a.state === "notification_sent" && s.transport !== "claude-channel")
         fail(400, "Only a Claude channel can report a notification");
+      if (a.state === "steer_accepted" && s.transport !== "codex-steer")
+        fail(
+          400,
+          "Only a Codex steering adapter can report steering acceptance",
+        );
       const terminal = [
+        "steer_accepted",
         "queued_with_provider",
         "notification_sent",
         "retry_wait",

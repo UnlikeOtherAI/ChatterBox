@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-25T22:18:42.853Z",
+  "host": "MINIS",
+  "provider": "Codex Desktop/0.159.2 (Windows 10.0.26200; x86_64) dumb (chatterbox; 0.1.0)",
+  "native_thread_id": "01a17524-82cf-73b0-b900-fe8170368398",
+  "native_turn_id": "01a17524-91e8-79d1-a3d3-eddedc32f77f",
+  "message_id": "msg_4b635f3f-d4ad-4191-bc97-dc8dc7859223",
+  "transport": "codex-steer",
+  "board_acceptance_to_native_transport_ms": 58,
+  "active_tool_boundary_observed": true,
+  "exact_turn_matched": true,
+  "native_transcript_contains_marker": true,
+  "acknowledgement": "received",
+  "delivery_state": "acknowledged",
+  "limits": [
+    "Shared app-server explicitly created for this disposable test; this does not prove attachment to an unrelated Codex Desktop owner",
+    "One setup turn and one steering test turn; no production conversations used",
+    "No queue fallback was invoked"
+  ],
+  "board_acceptance_to_authenticated_ack_ms": 14204,
+  "board_acceptance_to_observed_completion_ms": 24188,
+  "native_transcript_file": "rollout-2026-10-25T22-18-10-01a17524-82cf-73b0-b900-fe8170368398.jsonl",
+  "native_transcript_sha256": "6e9ac1e84d1d20ab753d59a5743855dae85fb8178183926bdd5c571e1ba78e1c",
+  "native_assistant_output_contains_marker_and_received": true
+}

@@ -835,3 +835,274 @@ test("adapter persists recipient spool and recovers a provider receipt after los
     f.board.close();
   }
 });
+
+test("adapter retains an event arriving during a drain instead of waiting for the recovery timer", async () => {
+  const f = fixture();
+  const spool = new Board(":memory:");
+  let release!: () => void;
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let heartbeats = 0;
+  const client = new Client("http://127.0.0.1:1", "unused");
+  client.call = async <T>() => {
+    if (++heartbeats === 1) await blocked;
+    return {} as T;
+  };
+  const adapter = new Adapter(
+    client,
+    spool,
+    f.b.session_id,
+    "mailbox",
+    async () => {},
+  );
+  try {
+    const first = adapter.tick();
+    await adapter.tick();
+    release();
+    await first;
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(heartbeats, 2);
+  } finally {
+    await adapter.stop();
+    spool.close();
+    f.board.close();
+  }
+});
+
+test("accepted steering is durable and cannot be reported by a queue adapter", () => {
+  const f = fixture();
+  try {
+    const reg = f.board.call(
+      f.bMachine.principal,
+      "register",
+      {
+        native_session_id: key(),
+        provider: "codex",
+        provider_version: "codex-cli 0.159.2",
+        runtime_id: "shared-app-server",
+        alias: "shared-server",
+        os: "win32",
+        transport: "codex-steer",
+      },
+      f.bMachine.token,
+    ) as { session_id: string; capability: string };
+    assert.equal(reg.capability, "CHECKPOINT");
+    const sent = f.send(undefined, reg.session_id);
+    const batch = f.board.call(f.bMachine.principal, "claim", {
+      session_id: reg.session_id,
+    }) as { deliveries: Claimed[] };
+    const report = {
+      message_id: sent.message_id,
+      session_id: reg.session_id,
+      lease_id: batch.deliveries[0]!.lease_id,
+      state: "steer_accepted",
+    };
+    f.board.call(f.bMachine.principal, "report", report);
+    f.advance(600000);
+    assert.deepEqual(
+      f.board.call(f.bMachine.principal, "claim", {
+        session_id: reg.session_id,
+      }),
+      { deliveries: [] },
+    );
+    const queue = f.register(f.bMachine, "queue-only", key(), "codex-queue");
+    const other = f.send(undefined, queue.session_id);
+    const lease = f.board.call(f.bMachine.principal, "claim", {
+      session_id: queue.session_id,
+    }) as { deliveries: Claimed[] };
+    failure(
+      () =>
+        f.board.call(f.bMachine.principal, "report", {
+          ...report,
+          message_id: other.message_id,
+          session_id: queue.session_id,
+          lease_id: lease.deliveries[0]!.lease_id,
+        }),
+      400,
+    );
+  } finally {
+    f.board.close();
+  }
+});
+
+test("directed SSE wakes recipients and viewers, excludes sibling chatter, and respects live revocation", async () => {
+  const f = fixture();
+  const sibling = f.register(f.bMachine, "sibling");
+  const foreign = f.machine("unrelated-project");
+  const viewer = f.board.issue(f.aMachine.principal, "viewer");
+  const service = await serve(f.board, { port: 0, mdns: false });
+  const url = `http://127.0.0.1:${service.port}`;
+  const streams: {
+    count: number;
+    closed: boolean;
+    controller: AbortController;
+    done: Promise<void>;
+  }[] = [];
+  const subscribe = async (token: string) => {
+    let ready!: () => void;
+    const connected = new Promise<void>((resolve) => {
+      ready = resolve;
+    });
+    const stream = {
+      count: 0,
+      closed: false,
+      controller: new AbortController(),
+      done: Promise.resolve(),
+    };
+    stream.done = new Client(url, token)
+      .events(stream.controller.signal, () => {
+        if (!stream.count++) ready();
+      })
+      .catch((error) => {
+        if (!stream.controller.signal.aborted) throw error;
+      })
+      .finally(() => {
+        stream.closed = true;
+      });
+    streams.push(stream);
+    await connected;
+    return stream;
+  };
+  const until = async (predicate: () => boolean) => {
+    const deadline = Date.now() + 2000;
+    while (!predicate() && Date.now() < deadline)
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    assert.ok(predicate(), "event observation deadline exceeded");
+  };
+  try {
+    const [a, b, c, legacy, view, other] = await Promise.all([
+      subscribe(f.a.token),
+      subscribe(f.b.token),
+      subscribe(sibling.token),
+      subscribe(f.bMachine.token),
+      subscribe(viewer),
+      subscribe(foreign.token),
+    ]);
+    const sender = new Client(url, f.a.token);
+    const sent = await sender.call<{ message_id: string }>("send", {
+      to: f.b.session_id,
+      body: "Directed input",
+      thread_id: "sse",
+      idempotency_key: key(),
+    });
+    await until(() => b.count === 2 && legacy.count === 2 && view.count === 2);
+    assert.deepEqual([a.count, c.count, other.count], [1, 1, 1]);
+    await sender.call("status", { state: "working", idempotency_key: key() });
+    await new Client(url, f.b.token).call("ack", {
+      message_id: sent.message_id,
+      acknowledgement: "received",
+      idempotency_key: key(),
+    });
+    await until(() => view.count === 4);
+    assert.deepEqual(
+      [a.count, b.count, c.count, legacy.count, other.count],
+      [1, 2, 1, 2, 1],
+    );
+    f.board.run(
+      "UPDATE credentials SET revoked=1 WHERE session_id=?",
+      f.b.session_id,
+    );
+    await sender.call("send", {
+      to: f.b.session_id,
+      body: "After session revocation",
+      thread_id: "sse",
+      idempotency_key: key(),
+    });
+    await until(() => b.closed && legacy.count === 3 && view.count === 5);
+    assert.equal(b.count, 2);
+    f.board.run(
+      "UPDATE credentials SET revoked=1 WHERE id=?",
+      f.bMachine.principal.id,
+    );
+    await sender.call("send", {
+      to: sibling.session_id,
+      body: "After owner revocation",
+      thread_id: "sse",
+      idempotency_key: key(),
+    });
+    await until(() => c.closed && legacy.closed && view.count === 6);
+    assert.equal(c.count, 1);
+  } finally {
+    for (const stream of streams) stream.controller.abort();
+    await Promise.all(streams.map((stream) => stream.done));
+    await service.close();
+    f.board.close();
+  }
+});
+
+test("delivery inspection stays scoped, omits bodies, and binds cursors across broadcast recipients", () => {
+  const f = fixture();
+  try {
+    const sibling = f.register(f.bMachine, "delivery-sibling");
+    for (let n = 0; n < 6; n++)
+      f.send(undefined, undefined, `Recipient body ${n}`);
+    f.board.call(f.a.principal, "broadcast", {
+      body: "Broadcast body",
+      thread_id: "inspection",
+      idempotency_key: key(),
+    });
+    type Page = {
+      deliveries: {
+        seq: number;
+        message_id: string;
+        session_id: string;
+        body?: string;
+      }[];
+      cursor: string | null;
+    };
+    let cursor: string | undefined;
+    const rows: Page["deliveries"] = [];
+    do {
+      const page = f.board.call(f.b.principal, "deliveries", {
+        limit: 2,
+        ...(cursor ? { cursor } : {}),
+      }) as Page;
+      rows.push(...page.deliveries);
+      cursor = page.cursor ?? undefined;
+    } while (cursor);
+    assert.equal(rows.length, 7);
+    assert.equal(new Set(rows.map((row) => row.seq)).size, 7);
+    assert.ok(
+      rows.every(
+        (row) => row.session_id === f.b.session_id && row.body === undefined,
+      ),
+    );
+    const project = f.board.call(f.a.principal, "deliveries", {
+      scope: "project",
+    }) as Page;
+    assert.equal(project.deliveries.length, 8);
+    assert.ok(
+      project.deliveries.some((row) => row.session_id === sibling.session_id),
+    );
+    const first = f.board.call(f.b.principal, "deliveries", {
+      limit: 2,
+    }) as Page;
+    failure(
+      () =>
+        f.board.call(f.b.principal, "deliveries", {
+          scope: "project",
+          cursor: first.cursor,
+        }),
+      400,
+    );
+    failure(
+      () =>
+        f.board.call(f.b.principal, "deliveries", {
+          session_id: sibling.session_id,
+        }),
+      403,
+    );
+    const other = f.machine("different-project");
+    assert.equal(
+      (
+        f.board.call(other.principal, "deliveries", {
+          scope: "project",
+        }) as Page
+      ).deliveries.length,
+      0,
+    );
+  } finally {
+    f.board.close();
+  }
+});

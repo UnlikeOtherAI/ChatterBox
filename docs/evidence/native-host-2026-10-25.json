@@ -1,0 +1,30 @@
+{
+  "captured_at": "2026-10-25T23:38:05.763Z",
+  "evidence": [
+    {
+      "provider": "codex",
+      "os": "win32",
+      "version": "codex-cli 0.159.2",
+      "launch_id": "launch_bf30e631-f63e-4450-bd6a-341c483f161a",
+      "native_session_id": "01a1756d-58ce-7c51-92ef-f1fdd2df2ad5",
+      "ack_source": "native_assistant_output",
+      "state": "completed",
+      "result": "CB_READY_75aba789-0596-42df-bb9b-dfb6ea688063\nHOST_EVAL_DONE_codex",
+      "elapsed_ms": 17199,
+      "base_sha": "558a65e11445d67208200efcdcb610087d83aa3e"
+    },
+    {
+      "provider": "claude-code",
+      "os": "win32",
+      "version": "2.1.308 (Claude Code)",
+      "launch_id": "launch_7c50e983-b770-484f-a8e5-182d03cea631",
+      "native_session_id": "bf6a991e-181d-47fa-896a-915540160621",
+      "ack_source": "native_assistant_output",
+      "state": "completed",
+      "result": "CB_READY_4be4fdfc-dff8-4416-bb1a-285fad7177fe\nHOST_EVAL_DONE_claude-code\n\nAssignment native-host-claude-code is done. As the eval required, I edited no files, ran no tools and created no sessions. The worktree is unchanged at base revision 558a65e. Nothing blocked the eval.",
+      "elapsed_ms": 16390,
+      "base_sha": "558a65e11445d67208200efcdcb610087d83aa3e"
+    }
+  ],
+  "scope": "New headless workers on Minis; dedicated worktrees, native assistant nonce, provider terminal event and one directed result per worker. No desktop-window creation or other-host proof."
+}
