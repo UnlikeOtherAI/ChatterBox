@@ -150,8 +150,9 @@ exposed Windows drive-letter casing and 8.3 temporary-directory aliases in the
 bare-root check. Native filesystem canonicalization expands the aliases before
 platform path comparison. The regression explicitly varies drive casing; all
 twelve lifecycle checks also passed on Minis with `TEMP` set to a real 8.3 path.
-Final CI remains the release gate. No native steering capability is inferred
-from portable tests.
+GitHub Verify passed on Windows, macOS and Ubuntu at `764db3a`, including lint,
+41 backend/MCP tests, the existing Playwright flows, directory packaging and
+packaged smoke checks. No native steering capability is inferred from those tests.
 
 The deployed hub uses source runtime `ac75eb3` independently of the desktop app,
 with the existing SQLite database backed up first. The verified snapshot contained
@@ -162,7 +163,8 @@ the same supervisor restarted the child from PID 24764 to PID 69348 and served
 authenticated HTTP 200. Whole-machine reboot, logoff and parent-process recovery
 were not exercised. No desktop installer or signed release was produced.
 
-The Mac LaunchAgent and Minis/Maxis user tasks run the separate host companion.
+The Mac LaunchAgent and Minis/Maxis user tasks run the separate host companion
+from source runtime `764db3a`, including native Windows path canonicalization.
 Maxis also has a supervised SSH tunnel to the Minis hub. All three reported online
 with trusted `ChatterBox` and `Fermenta` repository aliases. Launch authority is
 currently restricted to this setup chat's exact canonical session and expires
