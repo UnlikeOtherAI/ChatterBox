@@ -1,7 +1,9 @@
 # Guide for agents
 
-ChatterBox is a coordination service for existing sessions. It does not start
-models, allocate work, grant filesystem access, or replace the user's authority.
+ChatterBox's board coordinates existing sessions. An optional, separately
+authorized host companion can start new native headless workers; see
+[session hosts](session-hosts.md) and `board_help` topic `hosts`.
+The board does not allocate work, grant filesystem access or replace the user's authority.
 Use your current model and authentication. An idle adapter watches events without
 spending model tokens; processing a delivered message uses your provider plan.
 

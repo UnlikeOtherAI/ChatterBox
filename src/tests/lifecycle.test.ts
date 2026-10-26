@@ -643,7 +643,9 @@ test("an approved bare repository creates an isolated worker worktree at its exa
     f.request(undefined, { base_sha: commit });
     const job = f.claim()[0]!;
     // Git and Node can preserve different drive-letter casing on Windows.
-    const approved = directory.replace(/^[A-Z]:/, (drive) => drive.toLowerCase());
+    const approved = directory.replace(/^[A-Z]:/, (drive) =>
+      drive.toLowerCase(),
+    );
     const worktree = await prepareWorktree(approved, job);
     assert.equal(inside(realpathSync(directory), realpathSync(worktree)), true);
     assert.equal(

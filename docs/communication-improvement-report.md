@@ -1,6 +1,6 @@
 # Communication improvement report
 
-Date: 25 October 2026. Repository: `rafiki270/ChatterBox`. Audit base: `6a39aea`.
+Updated: 26 October 2026. Repository: `UnlikeOtherAI/ChatterBox`. Audit base: `6a39aea`.
 
 The intended communication model is a coordinator receiving directed worker
 results, decisions and blockers. Workers read their own inbox and explicitly
@@ -108,7 +108,8 @@ The requested GPT-6 Astra reviewer independently reviewed the architecture and
 in-progress source. It identified project event fanout, shared quotas, context
 defaults, native approval ownership, proof gating, native-consumption assertions
 and deadlines relative to leases. These informed fixes and focused regressions.
-Final-diff review/check results are recorded before delivery.
+The final Astra review found no remaining architecture blockers. Its follow-up
+also checked the exact-root bare-repository support.
 
 The board stays a durable scoped mailbox/audit service. A separate authorized
 coordinator/provider-lifecycle layer can create and supervise owned children.
@@ -125,15 +126,15 @@ Task boards group context; project grants remain the access boundary.
 
 ## Priorities and remaining limits
 
-| Priority | Status / next work                                                                                                                                                                                       |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P0       | Implemented quiet directed defaults, offline tools, scoped event fanout and verified shared-runtime steering. Already-owned desktop chats retain their actual mailbox/verified queue/channel limits.     |
-| P0       | Next: OS-managed lightweight hub lifecycle independent of UI, with restart/exit evidence and an explicit degraded UI. Production PID 24152 was reused; source merge does not upgrade installed binaries. |
-| P1       | Implemented opt-in native Codex/Claude headless host companion, scoped child registry and delegated authority. Other providers and each additional host still require their own setup/proof.             |
-| P1       | Next: missing-recipient diagnostics and registration freshness across hosts. Connection means adapter heartbeat, not model activity.                                                                     |
-| P1       | Next: byte-budget summaries and task inbox filtering; task boards currently share a project access boundary.                                                                                             |
-| P1       | Next: shared machine delivery-operation quota budgeting and stalled-but-open event-stream recovery. Session event credentials remove stream contention, not shared claim/report/heartbeat quotas.        |
-| P2       | Next: assignment ordering and provider idempotent-delivery tokens. One-at-a-time leases do not establish FIFO across retries/backoff.                                                                    |
+| Priority | Status / next work                                                                                                                                                                                               |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0       | Implemented quiet directed defaults, offline tools, scoped event fanout and verified shared-runtime steering. Already-owned desktop chats retain their actual mailbox/verified queue/channel limits.             |
+| P0       | Deployed an independent supervised Minis hub using the retained database. Controlled child exit recovered automatically and authenticated health returned HTTP 200. An explicit degraded UI remains future work. |
+| P1       | Native Codex/Claude headless host companions are deployed and verified on Minis, Mac and Maxis. Exact expiring coordinator allowlists restrict creation. Other providers/hosts require setup and proof.          |
+| P1       | Next: missing-recipient diagnostics and registration freshness across hosts. Connection means adapter heartbeat, not model activity.                                                                             |
+| P1       | Next: byte-budget summaries and task inbox filtering; task boards currently share a project access boundary.                                                                                                     |
+| P1       | Next: shared machine delivery-operation quota budgeting and stalled-but-open event-stream recovery. Session event credentials remove stream contention, not shared claim/report/heartbeat quotas.                |
+| P2       | Next: assignment ordering and provider idempotent-delivery tokens. One-at-a-time leases do not establish FIFO across retries/backoff.                                                                            |
 
 A crash can occur between native acceptance and local receipt storage. Provider
 delivery is not exactly once; recipients must deduplicate IDs. Queue-accepted
@@ -142,12 +143,42 @@ No stuck item is deleted to clear the dashboard.
 
 ## Validation and delivery
 
-Focused regressions and the native Windows proof ran on Minis to exercise its
-installed CLI/MCP environment. Portable full checks run on Maxis from the pushed
-revision after checking load and shared resource use. No Mac/Linux/Claude native
-steering capability is inferred from those checks.
+The full 41 compiled backend/MCP tests passed on Maxis at `13db89f`, after checking
+host load and shared reservations. Minis passed lint and the focused lifecycle
+checks, including native Git worktrees and path-containment regressions. CI then
+exposed Windows drive-letter casing in the bare-root check. The fix uses platform
+path equality after canonicalization, and the regression explicitly varies drive
+casing. The focused checks passed again on Minis. Final CI remains the release
+gate. No native steering capability is inferred from portable tests.
 
-Final commit, PR, CI and installed-release status are recorded after review.
+The deployed hub uses source runtime `ac75eb3` independently of the desktop app,
+with the existing SQLite database backed up first. The verified snapshot contained
+3,630 messages and 935 deliveries. Its SHA-256 is
+`2B034DA16F9E37B85B8BDB466EFF613478F257009343B5C7AD05A0CE7C302355`.
+The `ChatterBox Hub` user task starts at login. After a controlled child exit,
+the same supervisor restarted the child from PID 24764 to PID 69348 and served
+authenticated HTTP 200. Whole-machine reboot, logoff and parent-process recovery
+were not exercised. No desktop installer or signed release was produced.
+
+The Mac LaunchAgent and Minis/Maxis user tasks run the separate host companion.
+Maxis also has a supervised SSH tunnel to the Minis hub. All three reported online
+with trusted `ChatterBox` and `Fermenta` repository aliases. Launch authority is
+currently restricted to this setup chat's exact canonical session and expires
+within seven days. A different coordinator needs its own explicit enrollment;
+ordinary session registration grants no launch authority.
+
+The [deployment evidence](evidence/native-host-deployment-2026-10-26.json) records
+successful native Codex and Claude runs on Mac and Maxis, including native IDs,
+assistant readiness, final markers and failed attempts. Minis' two-provider proof
+is [recorded separately](evidence/native-host-2026-10-25.json). These create
+headless workers with owned worktrees, not desktop conversation windows.
+
+The native Codex queue audit found five already accepted inputs in three older,
+unloaded DeepTest chats. The installed provider exposes no supported promotion or
+reconciliation operation for those rows. They were neither deleted nor replayed
+into replacement sessions. The board audit separately found 485 mailbox and 18
+queued unacknowledged deliveries; persistence is not model receipt. Verified
+active-turn steering requires access to the actual owning shared runtime.
 
 ## Claude connection setup
 
@@ -168,3 +199,10 @@ Global Codex/Claude instructions were synchronized on Minis, Mac, Maxis and the
 Fedora test VM. Ubuntu did not answer SSH from Minis or Mac; its synchronization
 and MCP setup remain blocked by connectivity. No provider authentication tokens
 were copied between hosts.
+
+Native Claude creation uses each host's own CLI login, separately from the
+desktop MCP connection. Normal provider OAuth login completed on Maxis. On Mac,
+SSH login reported success but wrote the file fallback while a stale Keychain
+record still shadowed it. Repeating native login in the GUI LaunchAgent context
+resolved the observed failure, and the next headless worker completed. No saved
+credential was removed and no existing Claude conversation was terminated.
